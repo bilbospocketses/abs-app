@@ -300,6 +300,10 @@ export default ({ store, app }, inject) => {
 
   // Android only
   App.addListener('backButton', async ({ canGoBack }) => {
+    if (store.state.showSideDrawer) {
+      store.commit('setShowSideDrawer', false)
+      return
+    }
     if (store.state.globals.isModalOpen) {
       eventBus.$emit('close-modal')
       return

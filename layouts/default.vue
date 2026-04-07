@@ -335,6 +335,9 @@ export default {
 
       const deviceData = await this.$db.getDeviceData()
       this.$store.commit('setDeviceData', deviceData)
+      if (deviceData?.isAndroidTv) {
+        this.$store.commit('setIsAndroidTv', true)
+      }
 
       this.$setOrientationLock(this.$store.getters['getOrientationLockSetting'])
 

@@ -4,14 +4,14 @@
       <!-- list of server connection configs -->
       <template v-if="!showForm">
         <div v-for="config in serverConnectionConfigs" :key="config.id" class="border-b border-fg/10 py-4">
-          <div class="flex items-center my-1 relative space-x-2" @click="connectToServer(config)">
+          <div tabindex="0" class="flex items-center my-1 relative space-x-2 cursor-pointer" @click="connectToServer(config)" @keydown.enter.prevent="connectToServer(config)">
             <div class="grow inline-flex items-center overflow-hidden">
               <p class="text-base text-fg truncate">{{ config.name }}</p>
             </div>
-            <div class="h-full w-6 flex items-center" @click.stop="editServerConfig(config)">
+            <div tabindex="0" class="h-full w-6 flex items-center cursor-pointer" @click.stop="editServerConfig(config)" @keydown.enter.prevent.stop="editServerConfig(config)">
               <span class="material-symbols text-2xl text-fg-muted">more_vert</span>
             </div>
-            <div class="h-full w-6 flex items-center" @click.stop="removeServerConfigClick(config)">
+            <div tabindex="0" class="h-full w-6 flex items-center cursor-pointer" @click.stop="removeServerConfigClick(config)" @keydown.enter.prevent.stop="removeServerConfigClick(config)">
               <span class="material-symbols fill text-1.5xl text-fg-muted">delete</span>
             </div>
           </div>
@@ -34,7 +34,7 @@
       <div v-else class="w-full">
         <!-- server address input -->
         <form v-if="!showAuth" @submit.prevent="submit(false)" novalidate class="w-full">
-          <div v-if="serverConnectionConfigs.length" class="flex items-center mb-4" @click="showServerList">
+          <div v-if="serverConnectionConfigs.length" tabindex="0" class="flex items-center mb-4 cursor-pointer" @click="showServerList" @keydown.enter.prevent="showServerList">
             <span class="material-symbols text-fg-muted">arrow_back</span>
           </div>
           <h2 class="text-lg leading-7 mb-2">{{ $strings.LabelServerAddress }}</h2>
@@ -45,14 +45,14 @@
         </form>
         <!-- username/password and auth methods -->
         <template v-else>
-          <div v-if="serverConfig.id" class="flex items-center mb-4" @click="showServerList">
+          <div v-if="serverConfig.id" tabindex="0" class="flex items-center mb-4 cursor-pointer" @click="showServerList" @keydown.enter.prevent="showServerList">
             <span class="material-symbols text-fg-muted">arrow_back</span>
           </div>
 
           <div class="flex items-center">
             <p class="text-fg-muted">{{ serverConfig.address }}</p>
             <div class="flex-grow" />
-            <span v-if="!serverConfig.id" class="material-symbols" style="font-size: 1.1rem" @click="editServerAddress">edit</span>
+            <span v-if="!serverConfig.id" tabindex="0" class="material-symbols cursor-pointer" style="font-size: 1.1rem" @click="editServerAddress" @keydown.enter.prevent="editServerAddress">edit</span>
           </div>
           <div class="w-full h-px bg-fg/10 my-2" />
           <form v-if="isLocalAuthEnabled" @submit.prevent="submitAuth" class="pt-3">
