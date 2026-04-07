@@ -293,4 +293,4 @@ If you encounter navigation problems or unexpected behavior:
 3. What you expected vs. what happened
 4. Check the Logs page (side menu → Logs) for any errors
 
-Report issues at [audiobookshelf-app on GitHub](https://github.com/advplyr/audiobookshelf-app/issues).
+Report issues at https://github.com/bilbospocketses/audiobookshelf-app/issues 
