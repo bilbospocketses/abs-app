@@ -8,7 +8,11 @@ Audiobookshelf supports Android TV, giving you full control of your audiobook an
 
 ### Installation
 
-The TV version of audiobookshelf will be available in the Google Play Store once the app maintainer has an opportunity to publish it. Once installed, the app appears in your TV launcher alongside your other apps.
+The TV version of audiobookshelf will be available in the Google Play Store once the app maintainer has an opportunity to publish it. 
+
+In the meantime, you can sideload the apk located here: https://github.com/bilbospocketses/audiobookshelf-app/releases/tag/android-tv-v1.0
+
+Once installed, the app appears in your TV launcher alongside your other apps.
 
 ![Audiobookshelf in the Android TV launcher](images/tv-launcher.png)
 
