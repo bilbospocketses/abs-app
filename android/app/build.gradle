@@ -60,6 +60,11 @@ android {
       proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
     }
   }
+  applicationVariants.configureEach { variant ->
+    variant.outputs.configureEach {
+      outputFileName = "abs-android-tv.apk"
+    }
+  }
 }
 
 repositories {
