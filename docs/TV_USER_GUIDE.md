@@ -1,6 +1,6 @@
 # Audiobookshelf Android TV User Guide
 
-Audiobookshelf supports Android TV, giving you full control of your audiobook and podcast library from the couch using your TV remote. This guide covers everything you need to know to get started and navigate the app with a D-pad remote.
+Audiobookshelf supports Android TV, giving you full control of your audiobook and podcast libraries from the couch using your TV remote. This guide covers everything you need to know to get started and navigate the app with a D-pad remote.
 
 ---
 
