@@ -123,6 +123,8 @@ class MainActivity : BridgeActivity() {
     // On Android TV, fully terminate when the user leaves (Home button, etc.)
     // so the app always starts fresh. The WebView/JS state goes stale when
     // resumed from memory, breaking TV navigation. Mobile is unaffected.
+    // Audio is stopped and the process is killed — tester feedback indicates
+    // background audio on TV is not desired and causes confusion.
     if (DeviceManager.isAndroidTV(this) && !isChangingConfigurations) {
       finishAndRemoveTask()
       android.os.Process.killProcess(android.os.Process.myPid())

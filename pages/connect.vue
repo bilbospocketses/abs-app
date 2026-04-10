@@ -1,10 +1,10 @@
 <template>
-  <div class="w-full h-full">
-    <div class="relative flex items-center justify-center min-h-screen sm:pt-0">
+  <div :class="isAndroidTv ? 'w-full h-full overflow-y-auto' : 'w-full h-full'">
+    <div :class="isAndroidTv ? 'relative flex flex-col items-center min-h-screen pt-4' : 'relative flex items-center justify-center min-h-screen sm:pt-0'">
       <nuxt-link to="/" class="absolute top-2 left-2 z-20">
         <span class="material-symbols text-4xl">arrow_back</span>
       </nuxt-link>
-      <div class="absolute top-0 left-0 w-full p-6 flex items-center flex-col justify-center z-0 short:hidden">
+      <div :class="isAndroidTv ? 'w-full pt-4 px-6 pb-0 flex items-center flex-col justify-center short:hidden' : 'absolute top-0 left-0 w-full p-6 flex items-center flex-col justify-center z-0 short:hidden'">
         <img src="/Logo.png" class="h-20 w-20 mb-2" />
         <h1 class="text-2xl">audiobookshelf</h1>
       </div>
@@ -34,7 +34,11 @@ export default {
       deviceData: null
     }
   },
-  computed: {},
+  computed: {
+    isAndroidTv() {
+      return this.$store.state.isAndroidTv
+    }
+  },
   methods: {
     async init() {
       await this.$store.dispatch('setupNetworkListener')

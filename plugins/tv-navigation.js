@@ -11,10 +11,29 @@
  * - When a modal or drawer is open, navigation is trapped within it.
  */
 
+// ── Vuex store reference ──
+// Set by the default export when the plugin initializes.
+// Used by handleKeyDown for overlay dismissal (drawer/modal close).
+let _store = null
+
 // ── Focus history stack ──
 // Tracks which element was focused before an overlay opened.
 // Supports nested overlays (e.g. menu -> submenu).
 const focusHistory = []
+
+// ── Vertical navigation guard ──
+// Suppresses the focusout recovery handler while a vertical nav scroll is
+// settling.  The virtualizer may appendChild a still-focused card (series,
+// collection, playlist) which briefly detaches it, firing focusout.  Without
+// this guard the 200 ms focusout timer beats the 350 ms recovery timer and
+// snaps focus to the first card.
+let verticalNavInProgress = false
+
+// ── Last known focus position ──
+// Tracks the bounding rect center of the last focused card so that when
+// the virtualizer detaches a card during rapid scrolling (focus falls to
+// body), findVerticalTarget can still pick the correct column.
+let lastFocusRect = null
 
 // ── Page focus memory ──
 // Saves the focused element selector per route so Back navigation
@@ -109,24 +128,17 @@ function findByStructuralPath(path) {
 function restoreFromFingerprint(fingerprint) {
   if (!fingerprint) return false
 
-  // Restore scroll position so the virtualizer/shelves mount cards in the
-  // right range. The app has its own scroll restore (lastBookshelfScrollData)
-  // for grid pages, but the home page has none. Retry scroll restore
-  // multiple times to handle shelves that load asynchronously.
-  const scrollContainer = document.getElementById('bookshelf-wrapper') || document.querySelector('.overflow-y-auto')
-  if (scrollContainer && fingerprint.scrollTop > 0) {
-    let scrollAttempts = 0
-    const tryScroll = () => {
-      scrollAttempts++
-      if (scrollContainer.scrollTop < 10) {
-        scrollContainer.scrollTop = fingerprint.scrollTop
-      }
-      // Retry if scroll didn't stick (content may not be tall enough yet)
-      if (scrollAttempts < 6 && scrollContainer.scrollTop < fingerprint.scrollTop * 0.5) {
-        setTimeout(tryScroll, 500)
-      }
+  // Ensure scroll position is restored before looking for the element.
+  // Called synchronously at the start of each tryRestore attempt so the
+  // target element is in the viewport when isVisible runs.
+  // Looks up the scroll container fresh each time — the page may not have
+  // mounted yet on the first call (afterEach fires before Vue renders).
+  const ensureScroll = () => {
+    if (fingerprint.scrollTop <= 0) return
+    const scrollContainer = document.getElementById('bookshelf-wrapper') || document.querySelector('.overflow-y-auto')
+    if (scrollContainer && scrollContainer.scrollTop < fingerprint.scrollTop * 0.5) {
+      scrollContainer.scrollTop = fingerprint.scrollTop
     }
-    setTimeout(tryScroll, 300)
   }
 
   // Wait for content to mount after scroll, then find the element.
@@ -139,6 +151,10 @@ function restoreFromFingerprint(fingerprint) {
     const retryDelay = () => attempts < 5 ? 250 : 500
     const tryRestore = () => {
       attempts++
+      // Apply scroll before element lookup so target is in viewport
+      ensureScroll()
+      // Look up scroll container fresh — page may have just mounted
+      const scrollContainer = document.getElementById('bookshelf-wrapper') || document.querySelector('.overflow-y-auto')
       let el = null
 
       // 1. Try unique ID — but verify visibility (the virtualizer may leave
@@ -260,7 +276,11 @@ function isVisible(el) {
   const style = window.getComputedStyle(el)
   if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false
   const rect = el.getBoundingClientRect()
-  return rect.width > 0 && rect.height > 0
+  if (rect.width <= 0 || rect.height <= 0) return false
+  // Reject elements fully off-screen (e.g. translated drawer items)
+  if (rect.right < 0 || rect.left > window.innerWidth) return false
+  if (rect.bottom < 0 || rect.top > window.innerHeight) return false
+  return true
 }
 
 function isSameRow(rectA, rectB) {
@@ -491,17 +511,23 @@ function findVerticalTarget(direction) {
   const current = document.activeElement
   if (!current) return null
 
-  const currentRect = current.getBoundingClientRect()
+  // When the virtualizer detaches the focused card during rapid scrolling,
+  // focus falls to body. Use the last known card position to maintain column.
+  const focusLost = !current || current === document.body
+  const currentRect = focusLost && lastFocusRect ? lastFocusRect : current.getBoundingClientRect()
   const currentCenter = centerOf(currentRect)
   const goingDown = direction === 'ArrowDown'
 
+  // If focus is lost and we have no saved position, we can't navigate
+  if (focusLost && !lastFocusRect) return null
+
   // Find the scrollable container the current element lives in
-  const scrollContainer = findPageScrollContainer(current)
-  const isInScrollable = scrollContainer?.contains(current)
+  const scrollContainer = findPageScrollContainer(focusLost ? null : current)
+  const isInScrollable = !focusLost && scrollContainer?.contains(current)
 
   // Exclude player controls from page navigation (player has its own handler)
   const playerContainer = document.getElementById('streamContainer')
-  const currentInPlayer = playerContainer?.contains(current)
+  const currentInPlayer = !focusLost && playerContainer?.contains(current)
 
   const candidates = getAllFocusable().filter((el) => {
     if (el === current) return false
@@ -562,20 +588,20 @@ function handleKeyDown(event) {
       event.stopImmediatePropagation()
       const refocusAfterClose = () => setTimeout(() => focusFirstContentElement(), 300)
       // Close side drawer
-      if (store?.state?.showSideDrawer) {
-        store.commit('setShowSideDrawer', false)
+      if (_store?.state?.showSideDrawer) {
+        _store.commit('setShowSideDrawer', false)
         refocusAfterClose()
         return
       }
       // Close any open modal via the event bus (Modal.vue listens for this)
       if (document.documentElement.classList.contains('modal-open')) {
-        store.app.$eventBus?.$emit('close-modal')
+        _store?.app?.$eventBus?.$emit('close-modal')
         refocusAfterClose()
         return
       }
       // Close library modal (uses Vuex directly, not the modal base)
-      if (store?.state?.libraries?.showModal) {
-        store.commit('libraries/setShowModal', false)
+      if (_store?.state?.libraries?.showModal) {
+        _store.commit('libraries/setShowModal', false)
         refocusAfterClose()
         return
       }
@@ -590,91 +616,22 @@ function handleKeyDown(event) {
     const isFullscreen = streamContainer.classList.contains('fullscreen')
     const focusInPlayer = streamContainer.contains(document.activeElement)
 
-    // Back/Escape while player is fullscreen: collapse to minimized
+    // Back/Escape while player is fullscreen: close the player entirely.
+    // collapseFullscreen() on TV calls closePlayback() instead of minimizing.
     if (isFullscreen && (key === 'Escape' || key === 'GoBack' || event.keyCode === 4)) {
       event.preventDefault()
       event.stopImmediatePropagation()
-      // Blur first so collapsing v-show elements don't cause focus to jump
       document.activeElement?.blur()
-      // Click the collapse button (keyboard_arrow_down span) to trigger collapseFullscreen
       const collapseSpan = streamContainer.querySelector('.top-4.left-4 [tabindex="0"]')
       if (collapseSpan) collapseSpan.click()
-      // Focus the play/pause button in the minimized player
-      setTimeout(() => {
-        const playBtn = streamContainer.querySelector('.play-btn')
-        if (playBtn) playBtn.focus({ preventScroll: true })
-      }, 300)
+      // Player closes — focus first content element after it's gone
+      setTimeout(() => focusFirstContentElement(), 500)
       return
     }
 
-    // Up from minimized player: focus the lowest visible content element
-    if (!isFullscreen && focusInPlayer && key === 'ArrowUp') {
-      event.preventDefault()
-      const scrollArea = findPageScrollContainer() || document.querySelector('.overflow-y-auto')
-      const contentFocusable = getAllFocusable().filter((c) =>
-        !streamContainer.contains(c) && !c.closest('#appbar') && !c.closest('#bookshelf-toolbar')
-      )
-      if (contentFocusable.length > 0) {
-        // Pick the element closest to the bottom of the visible area
-        const viewBottom = scrollArea ? scrollArea.getBoundingClientRect().bottom : window.innerHeight
-        let best = null
-        let bestDist = Infinity
-        for (const c of contentFocusable) {
-          const rect = c.getBoundingClientRect()
-          // Only consider elements that are visible on screen
-          if (rect.bottom > 0 && rect.top < viewBottom) {
-            const dist = viewBottom - rect.bottom
-            if (dist < bestDist) {
-              bestDist = dist
-              best = c
-            }
-          }
-        }
-        if (best) {
-          best.focus({ preventScroll: true })
-          scrollParentToReveal(best)
-        } else {
-          focusFirstContentElement()
-        }
-      } else {
-        focusFirstContentElement()
-        setTimeout(() => {
-          if (document.activeElement && document.activeElement !== document.body) {
-            scrollParentToReveal(document.activeElement)
-          }
-        }, 100)
-      }
-      return
-    }
-
-    // Down from minimized player: expand to fullscreen
-    if (!isFullscreen && focusInPlayer && key === 'ArrowDown') {
-      event.preventDefault()
-      const playerContent = document.getElementById('playerContent')
-      if (playerContent) playerContent.click()
-      setTimeout(() => {
-        const playBtn = streamContainer.querySelector('.play-btn')
-        if (playBtn) playBtn.focus({ preventScroll: true })
-      }, 400)
-      return
-    }
-
-    // If pressing Down from page content and no more page elements below,
-    // enter the mini player (auto-expand to fullscreen).
-    if (!focusInPlayer && !isFullscreen && key === 'ArrowDown') {
-      const next = findVerticalTarget(key)
-      if (!next) {
-        // No page target below — enter the player
-        event.preventDefault()
-        const playerContent = document.getElementById('playerContent')
-        if (playerContent) playerContent.click()
-        setTimeout(() => {
-          const playBtn = streamContainer.querySelector('.play-btn')
-          if (playBtn) playBtn.focus({ preventScroll: true })
-        }, 400)
-        return
-      }
-    }
+    // Mini player navigation removed — on TV the player always closes
+    // entirely instead of minimizing. A future user setting will allow
+    // toggling between minimize and close behavior.
 
     // Navigation within fullscreen player — explicit row-based nav since
     // absolute positioning makes generic findVerticalTarget unreliable.
@@ -1020,8 +977,10 @@ function handleKeyDown(event) {
   // Item detail page: when no focusable target exists in the pressed direction,
   // scroll the page so users can browse non-focusable content (cover, metadata,
   // description). When a focusable element scrolls into view, transfer focus.
+  // Grid pages (Series, Collections, etc.) skip this — they use the general
+  // handler below which has virtualizer recovery for re-appended cards.
   const itemPage = findPageScrollContainer()
-  if (itemPage && (key === 'ArrowDown' || key === 'ArrowUp')) {
+  if (itemPage && !isGridPage() && (key === 'ArrowDown' || key === 'ArrowUp')) {
     const next = findVerticalTarget(key)
     if (next) {
       event.preventDefault()
@@ -1049,7 +1008,7 @@ function handleKeyDown(event) {
 
     if (focusedIsBookCard) {
       // Currently on a book card — try to find another card in the direction
-      const next = key === 'ArrowDown' ? findVerticalTarget(key) : findVerticalTarget(key)
+      const next = findVerticalTarget(key)
       if (next && next.id?.startsWith('author-book-')) {
         event.preventDefault()
         next.focus({ preventScroll: true })
@@ -1102,16 +1061,23 @@ function handleKeyDown(event) {
     if (next) {
       event.preventDefault()
       next.focus({ preventScroll: true })
+      lastFocusRect = next.getBoundingClientRect()
       scrollParentToReveal(next)
     } else {
       event.preventDefault()
     }
   } else if (key === 'ArrowUp' || key === 'ArrowDown') {
     event.preventDefault()
+    // Guard: the virtualizer can't remove series/collection/playlist cards
+    // (wrong ID prefix) so it re-appends them via appendChild, which briefly
+    // detaches the focused element.  Suppress focusout recovery during scroll.
+    verticalNavInProgress = true
+    const clearNavGuard = () => { verticalNavInProgress = false }
     const next = findVerticalTarget(key)
     if (next) {
       const targetId = next.id
       next.focus({ preventScroll: true })
+      lastFocusRect = next.getBoundingClientRect()
       scrollParentToReveal(next)
       // The virtualizer may remount cards during scroll, which can drop focus.
       // Re-find and re-focus the target card after the scroll settles.
@@ -1119,26 +1085,35 @@ function handleKeyDown(event) {
         setTimeout(() => {
           if (!document.activeElement || document.activeElement === document.body) {
             // Prefer the visible instance (stale orphans may share the same ID)
-            const matches = Array.from(document.querySelectorAll('#' + targetId))
+            const matches = Array.from(document.querySelectorAll('#' + CSS.escape(targetId)))
             const refound = matches.find((m) => isVisible(m))
-            if (refound) refound.focus({ preventScroll: true })
+            if (refound) {
+              refound.focus({ preventScroll: true })
+              lastFocusRect = refound.getBoundingClientRect()
+            }
           }
-        }, 350)
+          clearNavGuard()
+        }, 500)
+      } else {
+        setTimeout(clearNavGuard, 500)
       }
     } else {
       // Virtualized rows — scroll to trigger rendering, then retry
       const scrollContainer = document.getElementById('bookshelf-wrapper') || findPageScrollContainer()
       if (scrollContainer) {
-        const currentRect = document.activeElement?.getBoundingClientRect()
-        const scrollAmount = key === 'ArrowDown' ? (currentRect?.height || 200) + 40 : -((currentRect?.height || 200) + 40)
-        scrollContainer.scrollBy({ top: scrollAmount, behavior: 'smooth' })
+        const scrollAmount = key === 'ArrowDown' ? 240 : -240
+        scrollContainer.scrollBy({ top: scrollAmount, behavior: getScrollBehavior() })
         setTimeout(() => {
           const retryTarget = findVerticalTarget(key)
           if (retryTarget) {
             retryTarget.focus({ preventScroll: true })
+            lastFocusRect = retryTarget.getBoundingClientRect()
             scrollParentToReveal(retryTarget)
           }
-        }, 350)
+          clearNavGuard()
+        }, 500)
+      } else {
+        clearNavGuard()
       }
     }
   }
@@ -1171,11 +1146,13 @@ function focusFirstContentElement() {
     }
     return true
   }
-  // On detail pages (playlist, collection, item), focus the Play button
+  // On detail pages (playlist, collection, item), focus the Play button.
+  // Don't scroll — the page starts at the top and the Play button is
+  // already visible below the cover art. Scrolling to "reveal" it pushes
+  // the cover image out of view.
   const playBtn = document.querySelector('.btn.bg-success, ui-btn[color="success"], button.bg-success')
   if (playBtn) {
     playBtn.focus({ preventScroll: true })
-    scrollParentToReveal(playBtn)
     return true
   }
   // Fallback: any focusable element in content area, excluding nav bars and toolbars
@@ -1188,12 +1165,36 @@ function focusFirstContentElement() {
       return true
     }
   }
+  // Last resort: if logged out with no content on a main nav page,
+  // navigate to Home where the Connect button is always visible.
+  // Only triggers on standard navigable pages — NOT on connect, settings,
+  // account, or other pages where the user is actively trying to log in.
+  if (!_store?.state?.user?.user) {
+    const currentPath = window.location.pathname
+    const loggedOutRedirectPages = [
+      '/bookshelf/library', '/bookshelf/authors', '/bookshelf/collections',
+      '/bookshelf/series', '/bookshelf/playlists', '/bookshelf/latest'
+    ]
+    if (loggedOutRedirectPages.includes(currentPath)) {
+      Object.keys(pageFocusMemory).forEach((k) => delete pageFocusMemory[k])
+      focusHistory.length = 0
+      lastFocusRect = null
+      // Access toast via Vuex store's internal Vue instance (Vue.prototype.$toast)
+      const toast = _store._vm?.$toast
+      if (toast) {
+        toast.info('No user logged in. Returning Home. Click Connect to Login.', { timeout: 5000 })
+      }
+      _store.app.router.replace('/')
+      return true
+    }
+  }
   return false
 }
 
 export default function ({ store }) {
   if (typeof document === 'undefined') return
 
+  _store = store
   let initialized = false
 
   const checkAndInit = () => {
@@ -1289,6 +1290,10 @@ export default function ({ store }) {
         delete pageFocusMemory[from.fullPath]
         delete pageFocusMemory[to.fullPath]
         pendingScrollToTop = true
+        // Clear LazyBookshelf's stored scroll position so it doesn't restore
+        // the old position after our scroll-to-top fires.
+        store.commit('setLastBookshelfScrollData', { scrollTop: 0, path: '', name: '' })
+        store.state.lastBookshelfScrollData = {}
       } else if (!leavingMainPage && goingToMainPage) {
         // Detail → Main (e.g. Back from playlist to playlists list):
         // Clear the detail page fingerprint so it starts fresh next visit.
@@ -1310,6 +1315,7 @@ export default function ({ store }) {
       }
 
       focusHistory.length = 0
+      lastFocusRect = null
       next()
     })
 
@@ -1340,13 +1346,18 @@ export default function ({ store }) {
       // doesn't block focus setup on the new page
       fingerprintRestoreActive = false
 
-      // Main → Main: scroll to top so the page starts fresh
+      // Main → Main: scroll to top so the page starts fresh.
+      // LazyBookshelf restores its own scroll position from lastBookshelfScrollData
+      // after loading data, so we fire twice: once early and once after the
+      // maintainer's restore has likely completed, to ensure we win the race.
       if (pendingScrollToTop) {
         pendingScrollToTop = false
-        setTimeout(() => {
+        const scrollToTop = () => {
           const sc = document.getElementById('bookshelf-wrapper')
           if (sc) sc.scrollTop = 0
-        }, 200)
+        }
+        setTimeout(scrollToTop, 200)
+        setTimeout(scrollToTop, 800)
       }
 
       const saved = pageFocusMemory[to.fullPath]
@@ -1364,19 +1375,19 @@ export default function ({ store }) {
     })
   }
 
-  // Watch for audio player leaving fullscreen — focus the minimized play/pause.
-  // Covers all collapse paths: Back button, collapse button click, swipe, etc.
+  // Watch for audio player leaving fullscreen — on TV the player closes
+  // entirely, so focus a content element. The observer handles edge cases
+  // where closePlayback triggers the class change before the DOM is cleaned up.
   const playerObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.attributeName === 'class') {
         const sc = mutation.target
         if (sc.id === 'streamContainer' && !sc.classList.contains('fullscreen')) {
           setTimeout(() => {
-            const playBtn = sc.querySelector('.play-btn')
-            if (playBtn && (!document.activeElement || document.activeElement === document.body)) {
-              playBtn.focus({ preventScroll: true })
+            if (!document.activeElement || document.activeElement === document.body) {
+              focusFirstContentElement()
             }
-          }, 200)
+          }, 400)
         }
       }
     }
@@ -1436,6 +1447,10 @@ export default function ({ store }) {
     focusLossTimer = setTimeout(() => {
       // Only act if focus truly fell to body (element was removed)
       if (document.activeElement && document.activeElement !== document.body) return
+      // Don't interfere during vertical navigation — the virtualizer may
+      // briefly detach a focused card via appendChild; the nav handler's
+      // own recovery timer will restore focus.
+      if (verticalNavInProgress) return
       // Don't interfere during navigation or fingerprint restore
       if (fingerprintRestoreActive) return
       // Don't interfere when overlays are open

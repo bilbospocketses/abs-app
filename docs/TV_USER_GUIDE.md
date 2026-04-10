@@ -255,14 +255,51 @@ All settings pages are fully navigable with the D-pad:
 
 ## Focus Memory
 
-The app remembers where your focus was when you navigate deeper into content. When you press **Back** to return to a previous screen, focus is restored to exactly where you left off — even if the page needed to reload content.
+The app remembers where your focus was when you navigate deeper into content. When you press **Back** to return to a previous screen, focus is restored to exactly where you left off — even if the page needed to scroll back to where you were.
 
-This means you can:
-1. Browse your library
-2. Open a book to check details
-3. Press Back and land right where you were
+### How It Works
 
-Focus memory is maintained within a navigation path — for example, from your Library to a book detail page and back. However, when you switch to a different top-level section using the navigation bar (e.g., moving from Library to Authors), focus memory is cleared for both the section you're leaving and the one you're entering. Each top-level section starts fresh.
+| Where You Are | What You Do | Press Back | Focus Returns To |
+|---|---|---|---|
+| Home | Open a book card | Back to Home | The same book card |
+| Home | Open a series | Back to Home | The same series card |
+| Home | Open an author | Back to Home | The same author card |
+| Library | Open a book | Back to Library | The same book card (even if scrolled far down) |
+| Series grid | Open a series | Back to Series | The same series card |
+| Collections grid | Open a collection | Back to Collections | The same collection card |
+| Playlists grid | Open a playlist | Back to Playlists | The same playlist card |
+| Authors grid | Open an author | Back to Authors | The same author card |
+| Author detail | Open a book | Back to Author | The same book card |
+| Playlist detail | Ellipsis → History | Back to Playlist | The ellipsis button you opened |
+| Book detail | Ellipsis → History | Back to Book | The ellipsis button you opened |
+| Episode detail | Ellipsis → History | Back to Episode | The ellipsis button you opened |
+
+### Overlays and Modals
+
+When you open a modal (ellipsis menu, library selector, chapter list, sleep timer), focus is **trapped inside the modal** — you can't accidentally navigate to elements behind it. When you close the modal with **Back**, focus returns to the element that opened it.
+
+| Trigger | Overlay Type | Close Returns To |
+|---|---|---|
+| Book/episode ellipsis (⋮) | More menu modal | The ellipsis button |
+| Library selector | Library list modal | The library selector button |
+| Hamburger menu (☰) | Side drawer | The hamburger button |
+
+### Section Switching
+
+When you switch between top-level sections using the navigation bar (e.g., Library → Authors → Library), focus memory is cleared for both sections. Each section starts fresh with focus on the first card, scrolled to the top. This prevents stale positions from confusing navigation.
+
+### Server/User Screen
+
+The server connection screen has its own focus management for TV:
+
+| Action | Focus Behavior |
+|---|---|
+| Open server list | First server entry is focused |
+| Add New Server | Server address input is focused, keyboard opens |
+| Submit server address | Username input is focused, keyboard opens |
+| Edit server address (pencil) | Server address input is re-focused |
+| Back to server list | First server entry is focused |
+| Delete a server entry | Focus moves to the entry above (or top entry) |
 
 ---
 

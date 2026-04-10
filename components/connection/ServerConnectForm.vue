@@ -1,9 +1,10 @@
 <template>
   <div class="w-full max-w-md mx-auto px-2 sm:px-4 lg:px-8 z-10">
-    <div v-show="!loggedIn" class="mt-8 bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full">
+    <div v-show="!loggedIn" :class="[$store.state.isAndroidTv ? 'mt-4' : 'mt-8', 'bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full']">
       <!-- list of server connection configs -->
       <template v-if="!showForm">
         <div v-for="config in serverConnectionConfigs" :key="config.id" class="border-b border-fg/10 py-4">
+          <p v-if="$store.state.isAndroidTv && config.username" class="text-lg text-white font-bold mb-1">{{ config.username }}</p>
           <div tabindex="0" class="flex items-center my-1 relative space-x-2 cursor-pointer" @click="connectToServer(config)" @keydown.enter.prevent="connectToServer(config)">
             <div class="grow inline-flex items-center overflow-hidden">
               <p class="text-base text-fg truncate">{{ config.name }}</p>
@@ -38,7 +39,7 @@
             <span class="material-symbols text-fg-muted">arrow_back</span>
           </div>
           <h2 class="text-lg leading-7 mb-2">{{ $strings.LabelServerAddress }}</h2>
-          <ui-text-input v-model="serverConfig.address" :disabled="processing || !networkConnected || !!serverConfig.id" placeholder="http://55.55.55.55:13378" type="url" class="w-full h-10" />
+          <ui-text-input ref="serverAddressInput" v-model="serverConfig.address" :disabled="processing || !networkConnected || !!serverConfig.id" placeholder="http://55.55.55.55:13378" type="url" class="w-full h-10" />
           <div class="flex justify-end items-center mt-6">
             <ui-btn :disabled="processing || !networkConnected" type="submit" :padding-x="3" class="h-10">{{ networkConnected ? $strings.ButtonSubmit : $strings.MessageNoNetworkConnection }}</ui-btn>
           </div>
@@ -56,8 +57,8 @@
           </div>
           <div class="w-full h-px bg-fg/10 my-2" />
           <form v-if="isLocalAuthEnabled" @submit.prevent="submitAuth" class="pt-3">
-            <ui-text-input v-model="serverConfig.username" :disabled="processing" :placeholder="$strings.LabelUsername" class="w-full mb-2 text-lg" />
-            <ui-text-input v-model="password" type="password" :disabled="processing" :placeholder="$strings.LabelPassword" class="w-full mb-2 text-lg" />
+            <ui-text-input ref="usernameInput" v-model="serverConfig.username" :disabled="processing" :placeholder="$strings.LabelUsername" class="w-full mb-2 text-lg" />
+            <ui-text-input ref="passwordInput" v-model="password" type="password" :disabled="processing" :autofocus="!$store.state.isAndroidTv" :placeholder="$strings.LabelPassword" class="w-full mb-2 text-lg" />
 
             <div class="flex items-center pt-2">
               <ui-icon-btn v-if="serverConfig.id" bg-color="error" icon="delete" type="button" @click="removeServerConfigClick(serverConfig)" />
@@ -122,6 +123,26 @@ export default {
         challenge: null,
         buttonText: 'Login with OpenID',
         enforceHTTPs: true // RFC 6749, Section 10.9 requires https
+      }
+    }
+  },
+  watch: {
+    showAuth(newVal) {
+      if (!this.$store.state.isAndroidTv) return
+      if (newVal) {
+        // Auth form just appeared — ensure username input gets focus.
+        // Using a watcher guarantees this fires after Vue renders the form
+        // and after the finally block sets processing = false.
+        this.$nextTick(() => this.ensureFocus('usernameInput'))
+      } else if (this.showForm) {
+        // Returned to address form (e.g. pencil edit) — focus address input.
+        this.$nextTick(() => this.ensureFocus('serverAddressInput'))
+      }
+    },
+    showForm(newVal) {
+      if (newVal && !this.showAuth && this.$store.state.isAndroidTv) {
+        // Address form just appeared — ensure server address input gets focus.
+        this.$nextTick(() => this.ensureFocus('serverAddressInput'))
       }
     }
   },
@@ -445,6 +466,12 @@ export default {
         userId: null,
         username: null
       }
+      if (this.$store.state.isAndroidTv) {
+        this.$nextTick(() => {
+          const firstRow = this.$el.querySelector('.border-b.border-fg\\/10 > div[tabindex="0"]')
+          if (firstRow) firstRow.focus()
+        })
+      }
     },
     async connectToServer(config) {
       await this.$hapticsImpact()
@@ -487,6 +514,7 @@ export default {
         message: this.$strings.MessageConfirmDeleteServerConfig,
       })
       if (value) {
+        const deletedIndex = this.serverConnectionConfigs.findIndex((scc) => scc.id === serverConfig.id)
         this.processing = true
         await this.$db.removeServerConnectionConfig(serverConfig.id)
         const updatedDeviceData = { ...this.deviceData }
@@ -503,6 +531,14 @@ export default {
         this.showAuth = false
         this.showForm = !this.serverConnectionConfigs.length
         this.error = null
+
+        if (this.$store.state.isAndroidTv && !this.showForm) {
+          this.$nextTick(() => {
+            const focusIndex = deletedIndex > 0 ? deletedIndex - 1 : 0
+            const rows = this.$el.querySelectorAll('.border-b.border-fg\\/10 > div[tabindex="0"]')
+            if (rows[focusIndex]) rows[focusIndex].focus()
+          })
+        }
       }
     },
     async editServerConfig(serverConfig) {
@@ -524,6 +560,26 @@ export default {
       this.showForm = true
       this.showAuth = false
       this.error = null
+    },
+    ensureFocus(refName) {
+      // Poll until focus lands on the target input. The browser/form may
+      // redirect focus after validation errors — polling guarantees we win
+      // regardless of device speed.
+      // Cancel any previous poll so two ensureFocus calls don't fight.
+      if (this._ensureFocusPoll) clearInterval(this._ensureFocusPoll)
+      let attempts = 0
+      this._ensureFocusPoll = setInterval(() => {
+        attempts++
+        const target = this.$refs[refName]
+        const input = target?.$refs?.input
+        if (input && document.activeElement !== input) {
+          target.focus()
+        }
+        if ((input && document.activeElement === input) || attempts >= 40) {
+          clearInterval(this._ensureFocusPoll)
+          this._ensureFocusPoll = null
+        }
+      }, 50)
     },
     editServerAddress() {
       this.error = null
@@ -694,6 +750,9 @@ export default {
         return false
       } finally {
         this.processing = false
+        if (this.error && this.$store.state.isAndroidTv && !this.showAuth && this.showForm) {
+          this.ensureFocus('serverAddressInput')
+        }
       }
     },
     /** Validates the login form response from the server.
@@ -821,12 +880,14 @@ export default {
       if (!this.networkConnected) return
       if (!this.serverConfig.username) {
         this.error = 'Invalid username'
+        if (this.$store.state.isAndroidTv) this.ensureFocus('usernameInput')
         return
       }
 
       const duplicateConfig = this.serverConnectionConfigs.find((scc) => scc.address === this.serverConfig.address && scc.username === this.serverConfig.username && this.serverConfig.id !== scc.id)
       if (duplicateConfig) {
         this.error = 'Config already exists for this address and username'
+        if (this.$store.state.isAndroidTv) this.ensureFocus('usernameInput')
         return
       }
 
@@ -838,6 +899,8 @@ export default {
       if (payload) {
         // Will include access token and refresh token
         this.setUserAndConnection(payload)
+      } else if (this.$store.state.isAndroidTv) {
+        this.ensureFocus('passwordInput')
       }
     },
     async setUserAndConnection({ user, userDefaultLibraryId, serverSettings, ereaderDevices }) {
@@ -966,6 +1029,13 @@ export default {
         this.connectToServer(this.lastServerConnectionConfig)
       } else {
         this.showForm = !this.serverConnectionConfigs.length
+        // Auto-focus first server config on Android TV
+        if (!this.showForm && this.$store.state.isAndroidTv) {
+          this.$nextTick(() => {
+            const firstItem = this.$el?.querySelector('div[tabindex="0"]')
+            if (firstItem) firstItem.focus()
+          })
+        }
       }
     }
   },

@@ -28,17 +28,19 @@
   z-index: 200;
 }
 
-/* ── Modal/overlay items: subtle background highlight ── */
+/* ── Modal/overlay items: green left accent on focus ── */
 .android-tv .modal li[role="option"]:focus,
 .android-tv .modal li[tabindex="0"]:focus {
-  background-color: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-left: 3px solid #1ad691 !important;
   outline: none !important;
 }
 
-/* Side drawer items */
+/* Side drawer items: green left accent on focus */
 .android-tv .bg-bg.transition-transform button:focus,
 .android-tv .bg-bg.transition-transform a:focus {
-  background-color: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-left: 3px solid #1ad691 !important;
   outline: none !important;
 }
 
@@ -85,7 +87,7 @@
 .android-tv span[tabindex="0"]:focus,
 .android-tv svg[tabindex="0"]:focus,
 .android-tv p[tabindex="0"]:focus,
-.android-tv div[tabindex="0"]:focus:not([id^="book-card-"]):not([id^="series-card-"]):not([id^="collection-card-"]):not([id^="author-book-"]):not(.author-card-wrapper) {
+.android-tv div[tabindex="0"]:focus:not([id^="book-card-"]):not([id^="series-card-"]):not([id^="collection-card-"]):not([id^="playlist-card-"]):not([id^="author-book-"]):not(.author-card-wrapper) {
   outline: 2px solid #1ad691 !important;
   outline-offset: -2px;
   border-radius: 2px;

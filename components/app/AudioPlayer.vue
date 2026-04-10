@@ -454,6 +454,13 @@ export default {
       })
     },
     collapseFullscreen() {
+      // On Android TV, close the player entirely instead of minimizing.
+      // The mini player is difficult to navigate back to on TV. A future
+      // user setting will allow toggling between minimize and close behavior.
+      if (this.$store.state.isAndroidTv) {
+        this.closePlayback()
+        return
+      }
       this.showFullscreen = false
       if (this.titleMarquee) this.titleMarquee.reset()
 

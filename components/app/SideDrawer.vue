@@ -12,7 +12,7 @@
             <span class="material-symbols fill text-lg">{{ item.icon }}</span>
             <p class="pl-4">{{ item.text }}</p>
           </button>
-          <nuxt-link v-else :to="item.to" :key="item.text" :tabindex="show ? 0 : -1" class="w-full hover:bg-bg/60 flex items-center py-3 px-6 text-fg" :class="currentRoutePath.startsWith(item.to) ? 'bg-bg-hover/50' : 'text-fg-muted'" @keydown.enter.native="$router.push(item.to)">
+          <nuxt-link v-else :to="item.to" :key="item.text" :tabindex="show ? 0 : -1" class="w-full hover:bg-bg/60 flex items-center py-3 px-6 text-fg" :class="currentRoutePath.startsWith(item.to) ? 'bg-bg-hover/50' : 'text-fg-muted'">
             <span class="material-symbols fill text-lg">{{ item.icon }}</span>
             <p class="pl-4">{{ item.text }}</p>
           </nuxt-link>
@@ -25,7 +25,7 @@
         <div class="flex items-center">
           <p class="text-xs">{{ $config.version }}</p>
           <div class="flex-grow" />
-          <div v-if="user" tabindex="0" class="flex items-center cursor-pointer" @click="disconnect" @keydown.enter.prevent="disconnect">
+          <div v-if="user" :tabindex="show ? 0 : -1" class="flex items-center cursor-pointer" @click="disconnect" @keydown.enter.prevent="disconnect">
             <p class="text-xs pr-2">{{ $strings.ButtonDisconnect }}</p>
             <i class="material-symbols text-sm -mb-0.5">cloud_off</i>
           </div>

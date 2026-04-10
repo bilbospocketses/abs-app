@@ -47,7 +47,7 @@
         </button>
 
         <!-- Download Section -->
-        <div v-if="userCanDownload" tabindex="0" class="flex items-center cursor-pointer" @click.stop="downloadClick" @keydown.enter.prevent.stop="downloadClick">
+        <div v-if="userCanDownload" tabindex="0" class="flex items-center cursor-pointer" @keydown.enter.prevent.stop="!isLocal && !localEpisode && downloadClick()" @click.stop="!isLocal && !localEpisode && downloadClick()">
           <span v-if="isLocal" class="material-symbols px-2 text-success text-2xl leading-none">audio_file</span>
           <span v-else-if="!localEpisode" class="material-symbols mx-1.5 text-2xl leading-none" :class="downloadItem || pendingDownload ? 'animate-bounce text-warning text-opacity-75' : ''">
             {{ downloadItem || pendingDownload ? 'downloading' : 'download' }}
