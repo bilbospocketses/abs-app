@@ -1299,8 +1299,12 @@ export default function ({ store }) {
         // Clear the detail page fingerprint so it starts fresh next visit.
         delete pageFocusMemory[from.fullPath]
         // Clear destination if navigating from an actual nav/toolbar element
+        // (forward navigation like clicking a library tab), but NOT for the
+        // back arrow — it's a back navigation and should preserve fingerprints.
+        const isBackArrow = elementToSave?.getAttribute?.('aria-label') === 'Back'
         const isExplicitNavElement = elementToSave &&
           elementToSave !== document.body &&
+          !isBackArrow &&
           (elementToSave.closest?.('#appbar') || elementToSave.closest?.('#bookshelf-navbar') || elementToSave.closest?.('#bookshelf-toolbar'))
         if (isExplicitNavElement) {
           delete pageFocusMemory[to.fullPath]

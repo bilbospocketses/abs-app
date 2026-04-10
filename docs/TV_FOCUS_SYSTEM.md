@@ -47,6 +47,15 @@ When the user navigates between pages, the system saves a "fingerprint" of the f
 | Episode detail | Ellipsis → History | History page | Ellipsis button | Structural path | Yes | No |
 | Podcast page | Click episode title | Episode detail | Episode row element | Structural path / ID | Yes | No |
 
+### Back Arrow vs Remote Back Button
+
+Both the on-screen back arrow (Appbar) and the remote's hardware back button call `window.history.back()`. However, the `beforeEach` hook uses `document.activeElement` to determine the navigation context:
+
+- **Remote back button**: Focus is on a content card when it fires (Capacitor listener, not a DOM element). The card passes the `isContentElement` check, and the fingerprint is preserved.
+- **On-screen back arrow**: Focus is on the back arrow itself, which is inside `#appbar`. Without special handling, this would be classified as `isExplicitNavElement` (forward navigation from a nav link), causing the destination's saved fingerprint to be **deleted**.
+
+The back arrow is excluded from the `isExplicitNavElement` check via `aria-label="Back"`, ensuring it behaves identically to the remote back button for fingerprint restoration.
+
 ### Scroll Restore Timing
 
 Scroll position is restored **synchronously before each element lookup attempt** via `ensureScroll()`. This ensures the target element is in the viewport when `isVisible()` checks it. Previous approach (parallel timers for scroll and lookup) caused a regression where off-screen elements were rejected before scroll completed.
