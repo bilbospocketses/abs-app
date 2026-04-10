@@ -123,7 +123,42 @@ The server connection screen (`pages/connect.vue` + `components/connection/Serve
 - Server list box uses column flow layout (`flex-col`) instead of vertical centering — prevents the box from overlapping the logo when entries grow
 - Logo section is in-flow (not absolute positioned) on TV
 - Outer container has `overflow-y-auto` for scrolling when entries exceed viewport
-- Username label (`config.username`) displayed above each server entry in bold white text
+- Username label (`config.username`) displayed above server URL inside the focusable entry row, matching URL styling (`text-base text-fg`)
+- Focus box has 6px breathing room on left/right (`-mx-1.5 px-1.5`) to prevent text cutoff at focus ring edges
+- GitHub links container uses normal document flow on TV (not `fixed`) so D-pad can scroll to them
+
+### Server Entry D-pad Navigation
+
+The Android TV WebView's native D-pad spatial navigation has several limitations inside nested focusable containers:
+- **Left cannot navigate from child to parent** — pressing left on the first icon cannot find the parent entry row
+- **Vertical navigation targets sibling icons** — pressing up/down from an icon focuses the same icon on the adjacent row instead of the entry row
+- **Native engine overrides programmatic focus** — `.focus()` calls in `@keydown` handlers execute before the native engine, which then overrides the result
+- **Event bubbling causes double-scheduling** — keydown events on icons bubble to the parent entry row, triggering competing deferred focus calls
+
+These are solved with a layered approach:
+
+| Mechanism | Purpose |
+|---|---|
+| `dpadFocus(el)` | Defers `.focus({ preventScroll: true })` via `setTimeout(0)` to run after native engine; saves/restores scroll position to prevent oscillation |
+| `handleIconFocus(@focus)` | Intercepts cross-row focus on icons (up/down D-pad) and redirects to the entry row; skipped when `_dpadFocusActive` flag is set |
+| `@keydown.*.prevent.stop` on icons | Explicit left/right handlers with `.stop` to prevent event bubbling to entry row |
+| `lockScroll()` | Prevents scroll oscillation on dead-end key presses (e.g., right from delete) |
+| `onEntryRowFocus(index)` | Deferred scroll-to-top when first entry receives focus, ensuring back arrow stays visible |
+
+**D-pad navigation map for server entries:**
+
+```
+                    ┌─────────────────────────────────────────┐
+                    │  Entry Row (tabindex=0)                 │
+  ←(stay on row)    │  [Username]        [⋮ edit] [🗑 delete] │
+                    └───────┬──────────────┬──────────┬───────┘
+                            │   right→     │  right→  │
+                            ├──────────────►──────────►
+                            │   ←left      │  ←left   │
+                            ◄──────────────◄──────────┘
+                            │
+                     ↑↓ (adjacent entry row, never icon-to-icon)
+```
 
 ---
 

@@ -3,16 +3,16 @@
     <div v-show="!loggedIn" :class="[$store.state.isAndroidTv ? 'mt-4' : 'mt-8', 'bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full']">
       <!-- list of server connection configs -->
       <template v-if="!showForm">
-        <div v-for="config in serverConnectionConfigs" :key="config.id" class="border-b border-fg/10 py-4">
-          <p v-if="$store.state.isAndroidTv && config.username" class="text-lg text-white font-bold mb-1">{{ config.username }}</p>
-          <div tabindex="0" class="flex items-center my-1 relative space-x-2 cursor-pointer" @click="connectToServer(config)" @keydown.enter.prevent="connectToServer(config)">
-            <div class="grow inline-flex items-center overflow-hidden">
+        <div v-for="(config, index) in serverConnectionConfigs" :key="config.id" class="border-b border-fg/10 py-4">
+          <div ref="entryRows" tabindex="0" class="-mx-1.5 px-1.5 flex items-center my-1 relative space-x-2 cursor-pointer" @focus="onEntryRowFocus(index)" @click="connectToServer(config)" @keydown.enter.prevent="connectToServer(config)" @keydown.right.prevent="focusIcon(index, 'edit')" @keydown.left.prevent="focusEntry(index)">
+            <div class="grow inline-flex flex-col overflow-hidden">
+              <p v-if="$store.state.isAndroidTv && config.username" class="text-base text-fg truncate">{{ config.username }}</p>
               <p class="text-base text-fg truncate">{{ config.name }}</p>
             </div>
-            <div tabindex="0" class="h-full w-6 flex items-center cursor-pointer" @click.stop="editServerConfig(config)" @keydown.enter.prevent.stop="editServerConfig(config)">
+            <div ref="editIcons" tabindex="0" class="h-full w-6 flex items-center cursor-pointer" @focus="handleIconFocus($event, index)" @click.stop="editServerConfig(config)" @keydown.enter.prevent.stop="editServerConfig(config)" @keydown.right.prevent.stop="focusIcon(index, 'delete')" @keydown.left.prevent.stop="focusEntry(index)">
               <span class="material-symbols text-2xl text-fg-muted">more_vert</span>
             </div>
-            <div tabindex="0" class="h-full w-6 flex items-center cursor-pointer" @click.stop="removeServerConfigClick(config)" @keydown.enter.prevent.stop="removeServerConfigClick(config)">
+            <div ref="deleteIcons" tabindex="0" class="h-full w-6 flex items-center cursor-pointer" @focus="handleIconFocus($event, index)" @click.stop="removeServerConfigClick(config)" @keydown.enter.prevent.stop="removeServerConfigClick(config)" @keydown.left.prevent.stop="focusIcon(index, 'edit')" @keydown.right.prevent.stop="lockScroll">
               <span class="material-symbols fill text-1.5xl text-fg-muted">delete</span>
             </div>
           </div>
@@ -174,6 +174,60 @@ export default {
     }
   },
   methods: {
+    onEntryRowFocus(index) {
+      if (index !== 0) return
+      const scrollParent = this.getScrollParent()
+      if (!scrollParent) return
+      setTimeout(() => {
+        scrollParent.scrollTop = 0
+      }, 0)
+    },
+    handleIconFocus(event, index) {
+      // Skip redirect if our deferred dpadFocus is about to override anyway
+      if (this._dpadFocusActive) return
+      const entryRow = this.$refs.entryRows[index]
+      if (!entryRow) return
+      // Allow focus if it came from within the same entry row (right/left D-pad)
+      if (!event.relatedTarget || entryRow.contains(event.relatedTarget)) return
+      // Focus came from outside this row (up/down D-pad) — redirect to the entry row
+      entryRow.focus({ preventScroll: true })
+    },
+    getScrollParent() {
+      let el = this.$el
+      while (el && el !== document.documentElement) {
+        const style = window.getComputedStyle(el)
+        if (style.overflowY === 'auto' || style.overflowY === 'scroll') return el
+        el = el.parentElement
+      }
+      return document.scrollingElement
+    },
+    dpadFocus(el) {
+      if (!el) return
+      const scrollParent = this.getScrollParent()
+      const savedScroll = scrollParent ? scrollParent.scrollTop : 0
+      const isFirstEntry = this.$refs.entryRows && el === this.$refs.entryRows[0]
+      this._dpadFocusActive = true
+      setTimeout(() => {
+        el.focus({ preventScroll: true })
+        if (scrollParent) scrollParent.scrollTop = isFirstEntry ? 0 : savedScroll
+        this._dpadFocusActive = false
+      }, 0)
+    },
+    lockScroll() {
+      const scrollParent = this.getScrollParent()
+      if (!scrollParent) return
+      const savedScroll = scrollParent.scrollTop
+      setTimeout(() => {
+        scrollParent.scrollTop = savedScroll
+      }, 0)
+    },
+    focusEntry(index) {
+      this.dpadFocus(this.$refs.entryRows && this.$refs.entryRows[index])
+    },
+    focusIcon(index, type) {
+      const refs = type === 'edit' ? this.$refs.editIcons : this.$refs.deleteIcons
+      this.dpadFocus(refs && refs[index])
+    },
     showOldUserIdWarningDialog() {
       Dialog.alert({
         title: 'Old Server Connection Warning',
