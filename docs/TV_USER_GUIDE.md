@@ -157,7 +157,7 @@ The audio player is where you'll spend most of your time. On Android TV, it open
 The player has three rows of controls:
 
 **Top Row**
-- Collapse button (top-left) — minimizes the player back to the mini bar
+- Collapse button (top-left) — closes the player and stops playback
 - More options (⋮) (top-right) — access Close Player here
 
 **Main Controls Row**
@@ -174,15 +174,6 @@ The player has three rows of controls:
 - Chapters list
 
 Use **Left/Right** to move between controls in a row and **Up/Down** to move between rows.
-
-### Mini Player
-
-When you collapse the fullscreen player, a mini player bar appears at the bottom of the screen.
-
-- Press **Down** from the page content to expand back to fullscreen
-- Press **Up** from the mini player to return focus to the page
-
-The mini player only captures focus when there are no more page elements below — so you won't accidentally jump into it while scrolling through content.
 
 ---
 
@@ -307,7 +298,7 @@ The server connection screen has its own focus management for TV:
 
 - **Quick scroll:** Press and hold an arrow key to rapidly navigate through long lists
 - **Escape overlays:** The Back button always closes the topmost modal or drawer
-- **Player shortcut:** From anywhere with the mini player visible, press Down when at the bottom of content to jump into the fullscreen player
+- **Close player:** Press Back or the collapse button to close the player and stop playback
 - **Nav bar access:** Scroll to the top of any page, then press Up to reach the navigation bar
 - **App exit:** Press **Back twice** from the home screen to bring up the exit confirmation dialog. The app fully terminates on Android TV to prevent stale state on resume.
 
@@ -319,7 +310,7 @@ The server connection screen has its own focus management for TV:
 |-------|----------|
 | No green focus ring visible | Make sure you're using a D-pad remote, not a touch/air remote in pointer mode |
 | Focus seems lost | Press any arrow key — the app will recover focus to a visible element |
-| Player won't open fullscreen | Press Down from the mini player bar |
+| Player won't close | Press Back or the collapse button — both close the player and stop playback |
 | Can't reach navigation bar | Scroll to the top of the page first, then press Up |
 | App shows stale data on resume | This shouldn't happen — the app terminates fully on exit. If it does, force-stop and relaunch |
 
