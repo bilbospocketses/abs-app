@@ -1302,8 +1302,7 @@ export default function ({ store }) {
         pendingScrollToTop = true
         // Clear LazyBookshelf's stored scroll position so it doesn't restore
         // the old position after our scroll-to-top fires.
-        store.commit('setLastBookshelfScrollData', { scrollTop: 0, path: '', name: '' })
-        store.state.lastBookshelfScrollData = {}
+        store.commit('resetLastBookshelfScrollData')
       } else if (!leavingMainPage && goingToMainPage) {
         // Detail → Main (e.g. Back from playlist to playlists list):
         // Clear the detail page fingerprint so it starts fresh next visit.
