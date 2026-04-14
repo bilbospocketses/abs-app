@@ -69,7 +69,7 @@
 
       <div id="playerControls" class="absolute right-0 bottom-0 mx-auto" style="max-width: 414px">
         <div class="flex items-center max-w-full" :class="playerSettings.lockUi ? 'justify-center' : 'justify-between'">
-          <span v-show="showFullscreen && !playerSettings.lockUi" tabindex="0" class="material-symbols next-icon text-fg cursor-pointer" :class="isLoading ? 'text-opacity-10' : 'text-opacity-75'" @click.stop="jumpChapterStart" @keydown.enter.prevent.stop="jumpChapterStart">first_page</span>
+          <span v-show="showFullscreen && !playerSettings.lockUi" :tabindex="showFullscreen && !playerSettings.lockUi ? 0 : -1" class="material-symbols next-icon text-fg cursor-pointer" :class="isLoading ? 'text-opacity-10' : 'text-opacity-75'" @click.stop="jumpChapterStart" @keydown.enter.prevent.stop="jumpChapterStart">first_page</span>
           <div v-show="!playerSettings.lockUi" tabindex="0" class="jump-icon text-fg cursor-pointer flex flex-col items-center" :class="isLoading ? 'text-opacity-10' : 'text-opacity-75'" @click.stop="jumpBackwards" @keydown.enter.prevent.stop="jumpBackwards">
             <span class="material-symbols text-3xl leading-none">replay</span>
             <span v-if="showFullscreen" class="jump-label text-[10px] font-semibold leading-tight">{{ jumpBackwardsLabel }}</span>
@@ -84,7 +84,7 @@
             <span class="material-symbols text-3xl leading-none">forward_media</span>
             <span v-if="showFullscreen" class="jump-label text-[10px] font-semibold leading-tight">{{ jumpForwardLabel }}</span>
           </div>
-          <span v-show="showFullscreen && !playerSettings.lockUi" tabindex="0" class="material-symbols next-icon text-fg cursor-pointer" :class="nextChapter && !isLoading ? 'text-opacity-75' : 'text-opacity-10'" @click.stop="jumpNextChapter" @keydown.enter.prevent.stop="jumpNextChapter">last_page</span>
+          <span v-show="showFullscreen && !playerSettings.lockUi" :tabindex="showFullscreen && !playerSettings.lockUi ? 0 : -1" class="material-symbols next-icon text-fg cursor-pointer" :class="nextChapter && !isLoading ? 'text-opacity-75' : 'text-opacity-10'" @click.stop="jumpNextChapter" @keydown.enter.prevent.stop="jumpNextChapter">last_page</span>
         </div>
       </div>
 

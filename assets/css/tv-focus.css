@@ -5,10 +5,6 @@
   outline: none !important;
 }
 
-/* Remove focus ring for mouse/touch users on non-TV */
-:not(.android-tv) *:focus {
-  outline: none;
-}
 
 /* ── Cards: pseudo-element border overlay ── */
 .android-tv [id^="book-card-"]:focus::after,
