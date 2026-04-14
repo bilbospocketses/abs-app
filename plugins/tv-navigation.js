@@ -1222,11 +1222,10 @@ export default function ({ store }) {
         clearInterval(pollForCards)
       }
     }, 500)
+    registerTvListeners()
   }
 
-  checkAndInit()
-  setTimeout(checkAndInit, 1000)
-
+  function registerTvListeners() {
   // Flag to suppress content-change refocus when fingerprint restore is active
   let fingerprintRestoreActive = false
 
@@ -1587,4 +1586,8 @@ export default function ({ store }) {
       refocusAfterContentChange()
     })
   }
+  }
+
+  checkAndInit()
+  setTimeout(checkAndInit, 1000)
 }
