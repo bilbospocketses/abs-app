@@ -1,5 +1,5 @@
 <template>
-  <div tabindex="0" class="author-card-wrapper" :style="{ width: width + 'px', height: (height + (nameBelow ? 30 : 0)) + 'px' }" @click="clickCard" @keydown.enter="clickCard">
+  <div tabindex="0" class="author-card-wrapper" :style="{ width: width + 'px', height: (height + (nameBelow ? 30 : 0)) + 'px' }" @click="clickCard" @keydown.enter.prevent="clickCard">
     <div :style="{ width: width + 'px', height: height + 'px' }" class="author-card-inner bg-primary box-shadow-book rounded-md relative overflow-hidden">
       <!-- Image or placeholder -->
       <covers-author-image :author="author" />
