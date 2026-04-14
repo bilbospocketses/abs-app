@@ -1230,15 +1230,21 @@ export default function ({ store }) {
   let fingerprintRestoreActive = false
 
   // Re-focus helper — polls for first book card after content changes
+  let refocusIntervalId = null
+  let refocusTimeoutId = null
   function refocusAfterContentChange() {
     if (fingerprintRestoreActive) return
-    setTimeout(() => {
+    // Clear any existing poll to prevent stacking
+    clearTimeout(refocusTimeoutId)
+    clearInterval(refocusIntervalId)
+    refocusTimeoutId = setTimeout(() => {
       if (fingerprintRestoreActive) return
       let attempts = 0
-      const pollForCards = setInterval(() => {
+      refocusIntervalId = setInterval(() => {
         attempts++
         if (fingerprintRestoreActive || focusFirstContentElement() || attempts > 10) {
-          clearInterval(pollForCards)
+          clearInterval(refocusIntervalId)
+          refocusIntervalId = null
         }
       }, 500)
     }, 500)
@@ -1247,9 +1253,15 @@ export default function ({ store }) {
   // Flag for Main → Main navigation: scroll to top on arrival
   let pendingScrollToTop = false
 
+  // Declared here so beforeEach can clear it on navigation
+  let focusLossTimer = null
+
   // Save focus before navigating away, restore after navigating back
   if (store?.app?.router) {
     store.app.router.beforeEach((to, from, next) => {
+      // Cancel any pending focusout recovery — we're navigating away
+      clearTimeout(focusLossTimer)
+
       // Determine the element to save — prefer focus history stack
       let elementToSave = null
       if (focusHistory.length > 0) {
@@ -1453,7 +1465,6 @@ export default function ({ store }) {
   // Recover from focus loss when a focused element is removed from DOM
   // (e.g. download button disappears after download completes via v-if).
   // Redirect focus to the Play/Stream button or nearest content element.
-  let focusLossTimer = null
   document.addEventListener('focusout', (e) => {
     clearTimeout(focusLossTimer)
     focusLossTimer = setTimeout(() => {
