@@ -44,6 +44,9 @@ export default {
       await this.$store.dispatch('setupNetworkListener')
       this.deviceData = await this.$db.getDeviceData()
       this.$store.commit('setDeviceData', this.deviceData)
+      if (this.deviceData?.isAndroidTv) {
+        this.$store.commit('setIsAndroidTv', true)
+      }
     }
   },
   mounted() {
