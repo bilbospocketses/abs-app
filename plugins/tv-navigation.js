@@ -35,6 +35,9 @@ let verticalNavInProgress = false
 // body), findVerticalTarget can still pick the correct column.
 let lastFocusRect = null
 
+// CSS.escape polyfill for older Android TV WebViews (Chrome < 46)
+const cssEscape = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape : (s) => s.replace(/([^\w-])/g, '\\$1')
+
 // ── Page focus memory ──
 // Saves the focused element selector per route so Back navigation
 // can restore focus to where the user was. TV only.
@@ -56,8 +59,8 @@ function getElementFingerprint(el) {
 
   // Prefer ID-based selectors
   if (el.id) {
-    fingerprint.selector = '#' + el.id
-    fingerprint.idIsUnique = document.querySelectorAll('#' + el.id).length === 1
+    fingerprint.selector = '#' + cssEscape(el.id)
+    fingerprint.idIsUnique = document.querySelectorAll('#' + cssEscape(el.id)).length === 1
   }
   // For author cards
   if (el.classList.contains('author-card-wrapper')) {
@@ -66,7 +69,8 @@ function getElementFingerprint(el) {
   }
   // For buttons with aria-label
   if (el.tagName === 'BUTTON' && el.getAttribute('aria-label')) {
-    fingerprint.selector = `button[aria-label="${el.getAttribute('aria-label')}"]`
+    const label = el.getAttribute('aria-label').replace(/"/g, '\\"')
+    fingerprint.selector = `button[aria-label="${label}"]`
   }
 
   // Build a structural path: find the element's index among same-tag siblings
@@ -1083,16 +1087,19 @@ function handleKeyDown(event) {
       // Re-find and re-focus the target card after the scroll settles.
       if (targetId) {
         setTimeout(() => {
-          if (!document.activeElement || document.activeElement === document.body) {
-            // Prefer the visible instance (stale orphans may share the same ID)
-            const matches = Array.from(document.querySelectorAll('#' + CSS.escape(targetId)))
-            const refound = matches.find((m) => isVisible(m))
-            if (refound) {
-              refound.focus({ preventScroll: true })
-              lastFocusRect = refound.getBoundingClientRect()
+          try {
+            if (!document.activeElement || document.activeElement === document.body) {
+              // Prefer the visible instance (stale orphans may share the same ID)
+              const matches = Array.from(document.querySelectorAll('#' + cssEscape(targetId)))
+              const refound = matches.find((m) => isVisible(m))
+              if (refound) {
+                refound.focus({ preventScroll: true })
+                lastFocusRect = refound.getBoundingClientRect()
+              }
             }
+          } finally {
+            clearNavGuard()
           }
-          clearNavGuard()
         }, 500)
       } else {
         setTimeout(clearNavGuard, 500)
@@ -1104,13 +1111,16 @@ function handleKeyDown(event) {
         const scrollAmount = key === 'ArrowDown' ? 240 : -240
         scrollContainer.scrollBy({ top: scrollAmount, behavior: getScrollBehavior() })
         setTimeout(() => {
-          const retryTarget = findVerticalTarget(key)
-          if (retryTarget) {
-            retryTarget.focus({ preventScroll: true })
-            lastFocusRect = retryTarget.getBoundingClientRect()
-            scrollParentToReveal(retryTarget)
+          try {
+            const retryTarget = findVerticalTarget(key)
+            if (retryTarget) {
+              retryTarget.focus({ preventScroll: true })
+              lastFocusRect = retryTarget.getBoundingClientRect()
+              scrollParentToReveal(retryTarget)
+            }
+          } finally {
+            clearNavGuard()
           }
-          clearNavGuard()
         }, 500)
       } else {
         clearNavGuard()
