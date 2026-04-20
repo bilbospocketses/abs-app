@@ -110,6 +110,16 @@ After the initial submission, a full code audit of the TV-related changes surfac
 
 A 33-item manual test plan covering each fix plus regression scenarios was executed on a Chromecast with Google TV before release.
 
+## v1.0.6 — Screensaver Prevention During Playback (TV-only)
+
+Addresses a user-reported issue where the Chromecast with Google TV / Android TV Ambient Mode screensaver engaged during playback and killed audio after ~10 minutes of inactivity. Per Android TV developer guidance, audio should continue through Ambient Mode automatically — but CCwGTV firmware behavior diverges from the docs and stops playback regardless. This fix works around that platform quirk.
+
+- `components/app/AudioPlayer.vue` — new `updateKeepAwake(shouldKeepAwake)` helper, TV-gated via the `isAndroidTv` Vuex state. Wired into `onPlayingUpdate` (chokepoint for every play↔pause transition) and `endPlayback` (chokepoint for all session teardown: close, failure, fullscreen-collapse-close, component destroy).
+- Uses `@capacitor-community/keep-awake` — already in the dependency tree via the e-reader (`Reader.vue`). No new dependencies.
+- Try/catch around plugin calls; plugin errors are logged but never disrupt playback.
+- Behavior on phone / tablet / iOS: unchanged — the `isAndroidTv` gate returns early.
+- Behavior during paused playback on TV: wake lock released; screensaver engages normally; standard Android TV "Home after ~30 min" behavior applies, matching every other TV media app.
+
 ## Notes
 
 - **`android.view.View` import** — During development we explored using Android's native `View.setFocusHighlightEnabled(false)` to suppress a green focus box that appeared on the author bio page. This turned out to be our own CSS (a missing `position: relative` on a card container), not a native Android highlight. The import was reverted.
