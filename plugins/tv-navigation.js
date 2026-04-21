@@ -276,14 +276,19 @@ function centerOf(rect) {
   return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
 }
 
-function isVisible(el) {
+function isVisible(el, options = {}) {
   const style = window.getComputedStyle(el)
   if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false
   const rect = el.getBoundingClientRect()
   if (rect.width <= 0 || rect.height <= 0) return false
-  // Reject elements fully off-screen (e.g. translated drawer items)
-  if (rect.right < 0 || rect.left > window.innerWidth) return false
-  if (rect.bottom < 0 || rect.top > window.innerHeight) return false
+  // Reject elements fully off-screen (e.g. translated drawer items).
+  // In overlay context we skip this check so long scrollable lists (e.g. sort
+  // modal with 13 items in a 70vh-scroll container) stay fully navigable —
+  // scrollIntoView on focus brings off-viewport items into view as they activate.
+  if (!options.ignoreViewport) {
+    if (rect.right < 0 || rect.left > window.innerWidth) return false
+    if (rect.bottom < 0 || rect.top > window.innerHeight) return false
+  }
   return true
 }
 
@@ -323,12 +328,12 @@ function getActiveOverlay() {
   return null
 }
 
-function getAllFocusable(container) {
+function getAllFocusable(container, options = {}) {
   const root = container || document
   return Array.from(
     root.querySelectorAll('[tabindex="0"], button:not([tabindex="-1"]), a[href]:not([tabindex="-1"]):not([aria-hidden="true"]), input, select, textarea, li[tabindex="0"], li[role="option"][tabindex="0"]')
   ).filter((el) => {
-    if (!isVisible(el)) return false
+    if (!isVisible(el, options)) return false
     // Exclude disabled elements (focus() silently fails on them)
     if (el.disabled) return false
     // Exclude elements with tabindex="-1" (not intended for D-pad navigation)
@@ -454,7 +459,10 @@ function scrollParentToReveal(el) {
 
 function handleOverlayNavigation(event, overlay) {
   const { key } = event
-  const focusables = getAllFocusable(overlay)
+  // Inside overlays, include scrolled-off items in the focusable set so long
+  // lists (e.g. OrderModal's 13 sort options in a 70vh scroll container) wrap
+  // correctly — scrollIntoView below brings the newly-focused item into view.
+  const focusables = getAllFocusable(overlay, { ignoreViewport: true })
   const currentIndex = focusables.indexOf(document.activeElement)
 
   if (key === 'ArrowDown' || key === 'ArrowRight') {
