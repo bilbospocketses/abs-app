@@ -190,7 +190,11 @@ export default {
     menuItems() {
       const items = []
       // TODO: Implement on iOS
-      if (this.$platform !== 'ios' && !this.isPodcast && this.mediaId) {
+      // Android TV: hide History here — it routes to a separate page which collapses
+      // the fullscreen player into the retired mini-player state. History remains
+      // accessible from book detail pages. Tracked in
+      // project_tv_fullscreen_history_regression.md
+      if (this.$platform !== 'ios' && !this.isPodcast && this.mediaId && !this.$store.state.isAndroidTv) {
         items.push({
           text: this.$strings.ButtonHistory,
           value: 'history',
