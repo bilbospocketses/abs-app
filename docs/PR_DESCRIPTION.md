@@ -110,6 +110,34 @@ After the initial submission, a full code audit of the TV-related changes surfac
 
 A 33-item manual test plan covering each fix plus regression scenarios was executed on a Chromecast with Google TV before release.
 
+## v1.0.6 — Screensaver Prevention During Playback (TV-only)
+
+Addresses a user-reported issue where the Chromecast with Google TV / Android TV Ambient Mode screensaver engaged during playback and killed audio after ~10 minutes of inactivity. Per Android TV developer guidance, audio should continue through Ambient Mode automatically — but CCwGTV firmware behavior diverges from the docs and stops playback regardless. This fix works around that platform quirk.
+
+- `components/app/AudioPlayer.vue` — new `updateKeepAwake(shouldKeepAwake)` helper, TV-gated via the `isAndroidTv` Vuex state. Wired into `onPlayingUpdate` (chokepoint for every play↔pause transition) and `endPlayback` (chokepoint for all session teardown: close, failure, fullscreen-collapse-close, component destroy).
+- Uses `@capacitor-community/keep-awake` — already in the dependency tree via the e-reader (`Reader.vue`). No new dependencies.
+- Try/catch around plugin calls; plugin errors are logged but never disrupt playback.
+- Behavior on phone / tablet / iOS: unchanged — the `isAndroidTv` gate returns early.
+- Behavior during paused playback on TV: wake lock released; screensaver engages normally; standard Android TV "Home after ~30 min" behavior applies, matching every other TV media app.
+
+## v1.0.7 — Post-v1.0.6 Regression Fixes (TV-only)
+
+Three pre-existing regressions surfaced during the v1.0.5+v1.0.6 QA pass — each was present in v1.0.5 and earlier but not caught until a thorough 42-item manual test run. All three fixes are TV-gated and have zero effect on phone/tablet/iOS.
+
+**History option no longer breaks the fullscreen player** (`components/app/AudioPlayer.vue`)
+- Selecting History from the fullscreen audio player's ellipsis menu on TV collapsed the player into a stale mini-player state (mini player was retired in an earlier release).
+- Fix: hide History from the fullscreen ellipsis on TV via an `isAndroidTv` guard on the menu-item conditional. History remains accessible from book detail pages, the normal entry point.
+
+**Library sort modal D-pad wrap-around** (`plugins/tv-navigation.js`)
+- D-pad Down from the last option in a long sort modal (13-option library sort) wrapped to whatever option happened to be visible in the viewport (typically a middle item) instead of the first option.
+- Root cause: the overlay focusable filter was rejecting scrolled-off-screen items via a viewport check, so the "wrap to index 0" landed on index 0 of the trimmed visible set rather than the full list.
+- Fix: added an `ignoreViewport` option to `isVisible` and `getAllFocusable`; `handleOverlayNavigation` now passes `{ ignoreViewport: true }` so the full logical list is the navigable set regardless of scroll position. `scrollIntoView` (already called after focus) brings the newly-focused item into view. Main-page navigation is unchanged — bookshelf scroll still filters by viewport.
+
+**Playlist row play-button fingerprint preserved across player close** (`plugins/tv-navigation.js`)
+- Starting playback from an individual book's play button inside a playlist, then closing the fullscreen player, landed focus on the playlist's primary "Play Playlist" button instead of the row the user started from.
+- Root cause: two interacting problems. (a) No fingerprint was being saved for the pre-playback focus since the route doesn't change when the fullscreen player opens (it's an overlay). (b) Three separate code paths raced to call `focusFirstContentElement()` on close, and Android TV's native focus engine aggressively re-focused a nearby button (the primary Play) the instant the player's focused element unmounted.
+- Fix: save fingerprint synchronously via a dedicated `store.watch` on `playerStartingPlaybackMediaId` (committed inside `playClick` before any async). Added `focusAfterPlayerClose` helper that unconditionally restores the saved fingerprint if one exists (overriding the native engine's recovery guess), falling back only when no fingerprint was saved AND no element is currently focused. Routed all three player-close paths (Back button, MutationObserver, session watch) through the helper so the race no longer matters.
+
 ## Notes
 
 - **`android.view.View` import** — During development we explored using Android's native `View.setFocusHighlightEnabled(false)` to suppress a green focus box that appeared on the author bio page. This turned out to be our own CSS (a missing `position: relative` on a card container), not a native Android highlight. The import was reverted.
@@ -125,7 +153,6 @@ A 33-item manual test plan covering each fix plus regression scenarios was execu
 - [ ] Verify D-pad navigation moves focus with green ring visible on all focusable elements
 - [ ] Open a book detail page, verify chapters/tracks/cover art are navigable
 - [ ] Start playback, verify player opens fullscreen with all controls navigable
-- [ ] Collapse player to mini bar, verify Down re-expands and Up returns to content
 - [ ] Open author card, verify author detail page loads with bio and books
 - [ ] Test Back button restores focus to previous position
 - [ ] Test modals (libraries, chapters list) trap focus and restore on close

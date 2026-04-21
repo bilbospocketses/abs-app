@@ -276,14 +276,19 @@ function centerOf(rect) {
   return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
 }
 
-function isVisible(el) {
+function isVisible(el, options = {}) {
   const style = window.getComputedStyle(el)
   if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false
   const rect = el.getBoundingClientRect()
   if (rect.width <= 0 || rect.height <= 0) return false
-  // Reject elements fully off-screen (e.g. translated drawer items)
-  if (rect.right < 0 || rect.left > window.innerWidth) return false
-  if (rect.bottom < 0 || rect.top > window.innerHeight) return false
+  // Reject elements fully off-screen (e.g. translated drawer items).
+  // In overlay context we skip this check so long scrollable lists (e.g. sort
+  // modal with 13 items in a 70vh-scroll container) stay fully navigable —
+  // scrollIntoView on focus brings off-viewport items into view as they activate.
+  if (!options.ignoreViewport) {
+    if (rect.right < 0 || rect.left > window.innerWidth) return false
+    if (rect.bottom < 0 || rect.top > window.innerHeight) return false
+  }
   return true
 }
 
@@ -323,12 +328,12 @@ function getActiveOverlay() {
   return null
 }
 
-function getAllFocusable(container) {
+function getAllFocusable(container, options = {}) {
   const root = container || document
   return Array.from(
     root.querySelectorAll('[tabindex="0"], button:not([tabindex="-1"]), a[href]:not([tabindex="-1"]):not([aria-hidden="true"]), input, select, textarea, li[tabindex="0"], li[role="option"][tabindex="0"]')
   ).filter((el) => {
-    if (!isVisible(el)) return false
+    if (!isVisible(el, options)) return false
     // Exclude disabled elements (focus() silently fails on them)
     if (el.disabled) return false
     // Exclude elements with tabindex="-1" (not intended for D-pad navigation)
@@ -454,7 +459,10 @@ function scrollParentToReveal(el) {
 
 function handleOverlayNavigation(event, overlay) {
   const { key } = event
-  const focusables = getAllFocusable(overlay)
+  // Inside overlays, include scrolled-off items in the focusable set so long
+  // lists (e.g. OrderModal's 13 sort options in a 70vh scroll container) wrap
+  // correctly — scrollIntoView below brings the newly-focused item into view.
+  const focusables = getAllFocusable(overlay, { ignoreViewport: true })
   const currentIndex = focusables.indexOf(document.activeElement)
 
   if (key === 'ArrowDown' || key === 'ArrowRight') {
@@ -628,8 +636,9 @@ function handleKeyDown(event) {
       document.activeElement?.blur()
       const collapseSpan = streamContainer.querySelector('.top-4.left-4 [tabindex="0"]')
       if (collapseSpan) collapseSpan.click()
-      // Player closes — focus first content element after it's gone
-      setTimeout(() => focusFirstContentElement(), 500)
+      // Player closes — restore pre-playback fingerprint if one was saved,
+      // else fall back to first content element.
+      setTimeout(() => focusAfterPlayerClose(), 500)
       return
     }
 
@@ -1201,6 +1210,35 @@ function focusFirstContentElement() {
   return false
 }
 
+// Single entry point for all player-close focus-restore paths (Back button,
+// MutationObserver on streamContainer class change, store.watch on session
+// state). All three previously raced and called focusFirstContentElement
+// independently; this helper unifies them so the pre-playback fingerprint
+// (saved by the store.watch on playback start) is consulted regardless of
+// which path wins the race.
+// Tracked in project_tv_playlist_play_button_regression.md
+async function focusAfterPlayerClose() {
+  const currentPath = _store?.app?.router?.currentRoute?.fullPath || window.location.pathname
+  const saved = pageFocusMemory[currentPath]
+
+  // If we have a saved fingerprint for the current page, ALWAYS restore it.
+  // Android TV's native focus engine aggressively re-focuses a "nearby" element
+  // (often the primary Play button) the instant the fullscreen player's focused
+  // element is unmounted — guarding against that auto-focus is precisely why
+  // this function exists. Any non-body activeElement at this point is almost
+  // certainly the native engine's recovery guess, not user intent.
+  if (saved) {
+    const restored = await restoreFromFingerprint(saved)
+    if (restored) return
+  }
+
+  // No saved fingerprint OR restore failed — only set focus if we genuinely
+  // have no active element (don't steal from whatever the user is using).
+  if (!document.activeElement || document.activeElement === document.body) {
+    focusFirstContentElement()
+  }
+}
+
 export default function ({ store }) {
   if (typeof document === 'undefined') return
 
@@ -1407,11 +1445,7 @@ export default function ({ store }) {
       if (mutation.attributeName === 'class') {
         const sc = mutation.target
         if (sc.id === 'streamContainer' && !sc.classList.contains('fullscreen')) {
-          setTimeout(() => {
-            if (!document.activeElement || document.activeElement === document.body) {
-              focusFirstContentElement()
-            }
-          }, 400)
+          setTimeout(() => focusAfterPlayerClose(), 400)
         }
       }
     }
@@ -1426,6 +1460,26 @@ export default function ({ store }) {
   watchForPlayer()
   // Re-check periodically since the player mounts dynamically
   setInterval(watchForPlayer, 5000)
+
+  // Save fingerprint of the play-triggering element as early as possible.
+  // playerStartingPlaybackMediaId is committed synchronously inside the click
+  // handler (playClick in ItemTableRow.vue), so activeElement is guaranteed
+  // to still be the button that was pressed. By contrast, currentPlaybackSession
+  // changes later after the native round-trip, when focus may have shifted.
+  // Tracked in project_tv_playlist_play_button_regression.md
+  store.watch(
+    (state) => state.playerStartingPlaybackMediaId,
+    (newVal, oldVal) => {
+      if (!newVal || newVal === oldVal) return
+      const activeEl = document.activeElement
+      if (!activeEl || activeEl === document.body) return
+      const fp = getElementFingerprint(activeEl)
+      if (fp) {
+        const currentPath = store.app?.router?.currentRoute?.fullPath || window.location.pathname
+        pageFocusMemory[currentPath] = fp
+      }
+    }
+  )
 
   // Auto-expand player to fullscreen when playback starts on TV
   store.watch(
@@ -1446,11 +1500,10 @@ export default function ({ store }) {
           }
         }, 800)
       } else if (!newVal && oldVal) {
-        // Player closed — focus a content element and scroll it into view
-        setTimeout(() => {
-          if (!document.activeElement || document.activeElement === document.body) {
-            focusFirstContentElement()
-          }
+        // Player closed — unified restore via focusAfterPlayerClose (tries
+        // the fingerprint saved above on playback-start, then falls back).
+        setTimeout(async () => {
+          await focusAfterPlayerClose()
           // Scroll the focused element into view
           setTimeout(() => {
             if (document.activeElement && document.activeElement !== document.body) {
