@@ -11,6 +11,26 @@
  * - When a modal or drawer is open, navigation is trapped within it.
  */
 
+import { AbsLogger } from '@/plugins/capacitor'
+
+// Fire TV focus-debug diagnostic helpers — see fire-tv-focus-handling branch
+function _fmtEl(el) {
+  if (!el || el === document.body) return 'body'
+  const id = el.id ? '#' + el.id : ''
+  const cls = typeof el.className === 'string' && el.className ? '.' + el.className.trim().split(/\s+/).slice(0, 3).join('.') : ''
+  return (el.tagName + id + cls).slice(0, 120)
+}
+
+function _tvLog(tag, message) {
+  try {
+    if (AbsLogger && typeof AbsLogger.info === 'function') {
+      AbsLogger.info({ tag, message })
+    }
+  } catch (_) {
+    // AbsLogger may not be registered in web/SSR contexts
+  }
+}
+
 // ── Vuex store reference ──
 // Set by the default export when the plugin initializes.
 // Used by handleKeyDown for overlay dismissal (drawer/modal close).
@@ -1250,13 +1270,47 @@ export default function ({ store }) {
     if (!document.documentElement.classList.contains('android-tv')) return
 
     initialized = true
+
+    // ── Fire TV focus-debug banner ──
+    // Identifies this build in shared log exports and records context at init time.
+    const ua = (navigator && navigator.userAgent) || '(no UA)'
+    _tvLog('tv-debug', '========== fire-tv-focus-debug build initialized ==========')
+    _tvLog('tv-debug', `userAgent: ${ua}`)
+    _tvLog('tv-debug', `initial path: ${window.location.pathname}`)
+    _tvLog('tv-debug', `initial activeElement: ${_fmtEl(document.activeElement)}`)
+    _tvLog('tv-debug', `user logged in at init: ${!!_store?.state?.user?.user}`)
+
+    // ── Capture-phase keydown logger ──
+    // Logs raw D-pad / Enter keydowns BEFORE handleKeyDown (bubble phase) processes
+    // them, so we see what focus was on at the instant the user pressed the key.
+    // Throttle guard prevents log spam when the remote is held down.
+    const watchedKeys = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'])
+    let _lastKeyLogTs = 0
+    document.addEventListener('keydown', (e) => {
+      if (!watchedKeys.has(e.key)) return
+      const now = Date.now()
+      // 50ms throttle — enough to catch auto-repeat cadence without flooding logs
+      if (now - _lastKeyLogTs < 50) return
+      _lastKeyLogTs = now
+      _tvLog('tv-keydown', `${e.key} repeat=${e.repeat} activeElement=${_fmtEl(document.activeElement)} path=${window.location.pathname}`)
+    }, true)
+
     document.addEventListener('keydown', handleKeyDown)
 
     // Poll for the first book card
+    _tvLog('tv-debug', 'starting focus poll (500ms, 30 attempts max)')
     let attempts = 0
     const pollForCards = setInterval(() => {
       attempts++
-      if (focusFirstContentElement() || attempts > 30) {
+      const aeBefore = _fmtEl(document.activeElement)
+      const result = focusFirstContentElement()
+      const aeAfter = _fmtEl(document.activeElement)
+      // Log every attempt on first 3 and then only every 5th to limit volume
+      if (attempts <= 3 || attempts % 5 === 0 || result) {
+        _tvLog('tv-poll', `attempt=${attempts} returned=${result} before=${aeBefore} after=${aeAfter}`)
+      }
+      if (result || attempts > 30) {
+        _tvLog('tv-debug', `focus poll ending: attempts=${attempts} result=${result} finalActiveElement=${aeAfter}`)
         clearInterval(pollForCards)
       }
     }, 500)

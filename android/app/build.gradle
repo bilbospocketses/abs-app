@@ -72,7 +72,7 @@ android {
   applicationVariants.configureEach { variant ->
     variant.outputs.configureEach {
       if (variant.buildType.name == 'release') {
-        outputFileName = "abs-android-tv-release.apk"
+        outputFileName = "abs-android-tv-release-firetv-focus-debug.apk"
       } else {
         outputFileName = "abs-android-tv.apk"
       }
