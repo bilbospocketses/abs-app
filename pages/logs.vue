@@ -14,7 +14,7 @@
       </div>
       <div v-if="hasScrolled" class="sticky top-0 left-0 w-full h-10 bg-gradient-to-t from-transparent to-bg z-10 pointer-events-none"></div>
 
-      <div v-for="(log, index) in logs" :key="log.id" class="py-2 px-4" :class="{ 'bg-white/5': index % 2 === 0 }">
+      <div v-for="(log, index) in displayLogs" :key="log.id" class="py-2 px-4" :class="{ 'bg-white/5': index % 2 === 0 }">
         <div class="flex items-center space-x-4 mb-1">
           <div class="text-xs uppercase font-bold" :class="{ 'text-error': log.level === 'error', 'text-blue-500': log.level === 'info' }">{{ log.level }}</div>
           <div class="text-xs text-gray-400">{{ formatEpochToDatetimeString(log.timestamp) }}</div>
@@ -32,6 +32,12 @@
 import { AbsLogger } from '@/plugins/capacitor'
 import { FileSharer } from '@webnativellc/capacitor-filesharer'
 
+// TEMP (fire-tv-focus-handling): log display order flipped to newest-at-top and
+// auto-scroll-to-bottom removed so D-pad traversal to the copy/share header doesn't
+// fight the user as new focus-debug entries append. Underlying `logs` array stays
+// chronological so copy/share output is unchanged.
+// REVERT when the Fire TV focus bug is root-caused and fixed. See todo_abs_tv.md.
+
 export default {
   data() {
     return {
@@ -44,6 +50,10 @@ export default {
     }
   },
   computed: {
+    // TEMP (fire-tv-focus-handling): reverse for display only; see top-of-file note.
+    displayLogs() {
+      return [...this.logs].reverse()
+    },
     dialogItems() {
       return [
         {
@@ -127,9 +137,12 @@ export default {
         }
       })
     },
-    scrollToBottom() {
-      this.$refs.logContainer.scrollTop = this.$refs.logContainer.scrollHeight
-      this.hasScrolled = this.$refs.logContainer.scrollTop > 0
+    // TEMP (fire-tv-focus-handling): replaced scrollToBottom with scrollToTop;
+    // see top-of-file note. Revert to scrollToBottom when focus bug is fixed.
+    scrollToTop() {
+      if (!this.$refs.logContainer) return
+      this.$refs.logContainer.scrollTop = 0
+      this.hasScrolled = false
     },
     maskLogMessage(message) {
       return message.replace(/(https?:\/\/)\S+/g, '$1[SERVER_ADDRESS]')
@@ -144,7 +157,7 @@ export default {
             return log
           })
           this.$nextTick(() => {
-            this.scrollToBottom()
+            this.scrollToTop()
           })
           this.isLoading = false
         })
@@ -160,10 +173,9 @@ export default {
       log.maskedMessage = this.maskLogMessage(log.message)
       this.logs.push(log)
       this.logs.sort((a, b) => a.timestamp - b.timestamp)
-
-      this.$nextTick(() => {
-        this.scrollToBottom()
-      })
+      // TEMP (fire-tv-focus-handling): intentionally no scroll action on new log.
+      // New entries appear at the top of displayLogs (reversed), user's reading
+      // position stays put. Revert to scrollToBottom when focus bug is fixed.
     })
     this.loadLogs()
   },
