@@ -43,11 +43,11 @@ jobs:
         working-directory: android/app/build/outputs/apk/debug/
         run: |
           build="$(date +%Y%m%d-%H%M%S)-$(git rev-parse --short HEAD)"
-          name="audiobookshelf-${build}.apk"
+          name="abs-app-${build}.apk"
           mv -v app-debug.apk "${name}"
 
       - name: upload app
         uses: actions/upload-artifact@v4
         with:
-          name: audiobookshelf-apk
+          name: abs-app-apk
           path: android/app/build/outputs/apk/debug/*.apk
