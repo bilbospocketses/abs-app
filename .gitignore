@@ -92,3 +92,8 @@ sw.*
 
 /resources/
 /android/app/release/
+
+# Local agent / tooling artifacts (never check in)
+.claude/
+.superpowers/
+.vs/
