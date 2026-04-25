@@ -138,6 +138,28 @@ Three pre-existing regressions surfaced during the v1.0.5+v1.0.6 QA pass — eac
 - Root cause: two interacting problems. (a) No fingerprint was being saved for the pre-playback focus since the route doesn't change when the fullscreen player opens (it's an overlay). (b) Three separate code paths raced to call `focusFirstContentElement()` on close, and Android TV's native focus engine aggressively re-focused a nearby button (the primary Play) the instant the player's focused element unmounted.
 - Fix: save fingerprint synchronously via a dedicated `store.watch` on `playerStartingPlaybackMediaId` (committed inside `playClick` before any async). Added `focusAfterPlayerClose` helper that unconditionally restores the saved fingerprint if one exists (overriding the native engine's recovery guess), falling back only when no fingerprint was saved AND no element is currently focused. Routed all three player-close paths (Back button, MutationObserver, session watch) through the helper so the race no longer matters.
 
+## v1.0.8 — User-Customizable Focus Ring Color (TV-only)
+
+Adds a TV-only Settings control that lets the user pick the D-pad focus-ring color from a curated set of 7 high-contrast presets, plus the underlying refactor that makes the runtime override possible. Zero effect on phone / tablet / iOS.
+
+**Variable extraction** (`assets/css/tv-focus.css`)
+- The hardcoded `#1ad691` literal was repeated 8 times across every focus-ring presentation (border overlays, modal left-accents, drawer accents, generic outlines, settings dropdowns, player controls, etc.). Extracted to a single `--tv-focus-color` CSS custom property defined on `:root.android-tv`. All 8 sites now reference `var(--tv-focus-color)` so a single setProperty call retints every surface.
+
+**Settings storage** (`store/user.js`)
+- New `tvFocusColor: '#1ad691'` key on the initial `state.settings` object. Rides the existing `updateUserSettings` / `loadUserSettings` / `$localStore.setUserSettings` pipeline alongside `playbackRate`, `collapseSeries`, etc. Persistence model is the same single device-wide `'userSettings'` Capacitor Preferences key every other setting uses — not per-user, matching the existing app contract.
+
+**Runtime apply** (`plugins/tv-navigation.js`)
+- New `VALID_TV_FOCUS_HEXES` allowlist + `applyTvFocusColor(value, store)` helper at module scope. Inside `registerTvListeners`, an initial-apply call handles the case where `loadUserSettings` finishes before TV nav init runs, then a `user-settings` event-bus subscriber writes the chosen hex into `--tv-focus-color` on `<html>` for every later change. Stored values not in the allowlist self-heal back to default by dispatching a corrective `updateUserSettings`.
+
+**Picker component** (`components/ui/TvFocusColorPicker.vue` — new)
+- Horizontal swatch row of 7 buttons (ABS Green default · Sky · Amber · Red · Violet · Yellow · White). The currently-in-use swatch carries a `★` glyph (white char with black halo so it reads on every fill including white). D-pad focus draws a black inner edge + outer band in `var(--tv-focus-color)` via box-shadow — the black band keeps the indicator readable when the focused swatch is the same color as the focus ring itself, and box-shadow takes no layout space so swatches don't shift between focused/unfocused states. Component is TV-agnostic; the parent handles `isAndroidTv` gating.
+
+**Settings page wiring** (`pages/settings.vue`)
+- New v-if=isAndroidTv "TV Settings" section at the top of the page hosting `<TvFocusColorPicker>`. Adds `isAndroidTv` and `tvFocusColor` computeds plus a `setTvFocusColor` method that dispatches `updateUserSettings`. The `mt-10` spacer on the next section header is gated to TV only so phone layout is byte-identical to before. Section header / row label are hardcoded English on this fork (not routed through `$strings`) to avoid touching `strings/en-us.json`; i18n migration deferred until after upstream PR acceptance.
+
+**Verification**
+- 26-item manual test checklist passed on Google TV Streamer 4K, including a non-default-color regression pass over all 8 I8 focus surfaces and a smoke run of the v1.0.5/v1.0.6 42-item TV checklist with the picker landed.
+
 ## Notes
 
 - **`android.view.View` import** — During development we explored using Android's native `View.setFocusHighlightEnabled(false)` to suppress a green focus box that appeared on the author bio page. This turned out to be our own CSS (a missing `position: relative` on a card container), not a native Android highlight. The import was reverted.

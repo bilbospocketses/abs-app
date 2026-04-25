@@ -16,6 +16,19 @@
 // Used by handleKeyDown for overlay dismissal (drawer/modal close).
 let _store = null
 
+// Valid focus-ring colors (must match TvFocusColorPicker.vue PRESETS)
+const VALID_TV_FOCUS_HEXES = ['#1ad691', '#3ea6ff', '#ffb74d', '#ff5252', '#e040fb', '#ffeb3b', '#ffffff']
+const DEFAULT_TV_FOCUS_HEX = '#1ad691'
+
+function applyTvFocusColor(value, store) {
+  const hex = VALID_TV_FOCUS_HEXES.includes(value) ? value : DEFAULT_TV_FOCUS_HEX
+  document.documentElement.style.setProperty('--tv-focus-color', hex)
+  // Self-heal: if the stored value was bad, dispatch a corrective save.
+  if (value && hex !== value && store) {
+    store.dispatch('user/updateUserSettings', { tvFocusColor: DEFAULT_TV_FOCUS_HEX })
+  }
+}
+
 // ── Focus history stack ──
 // Tracks which element was focused before an overlay opened.
 // Supports nested overlays (e.g. menu -> submenu).
@@ -1648,6 +1661,11 @@ export default function ({ store }) {
     // Fires when bookshelf content changes (after filter, sort, or data load)
     store.app.$eventBus.$on('bookshelf-total-entities', () => {
       refocusAfterContentChange()
+    })
+    // TV focus ring color — apply current value, then react to user-settings broadcasts
+    applyTvFocusColor(store.state.user?.settings?.tvFocusColor, store)
+    store.app.$eventBus.$on('user-settings', (settings) => {
+      applyTvFocusColor(settings?.tvFocusColor, store)
     })
   }
   }

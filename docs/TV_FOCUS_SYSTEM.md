@@ -16,6 +16,18 @@ All TV behavior is gated behind the `android-tv` CSS class on `<html>` (injected
 
 ---
 
+## Focus Ring Color (User-Customizable)
+
+The focus ring color is exposed as the `--tv-focus-color` CSS custom property defined on `:root.android-tv` in `assets/css/tv-focus.css`. All eight focus-ring presentations (border overlays, modal left-accents, drawer accents, generic outlines, settings dropdowns, player controls, etc.) reference `var(--tv-focus-color)` so a single property write retints every surface.
+
+The runtime override pipeline:
+
+- `pages/settings.vue` renders a TV-only "TV Settings" section hosting `components/ui/TvFocusColorPicker.vue` (7 curated presets, default `#1ad691`).
+- Selection dispatches `user/updateUserSettings` with `{ tvFocusColor }`, which persists via `$localStore.setUserSettings` and emits `user-settings` on `$eventBus`.
+- A subscriber inside `registerTvListeners` in `plugins/tv-navigation.js` writes the chosen hex into `--tv-focus-color` on `<html>`. An initial-apply call before the listener handles the case where `loadUserSettings` finishes before TV nav init runs. Stored values not in the `VALID_TV_FOCUS_HEXES` allowlist self-heal back to default.
+
+---
+
 ## Fingerprint Restore — Navigation Matrix
 
 When the user navigates between pages, the system saves a "fingerprint" of the focused element (ID, structural path, scroll position, bounding rect) and restores it on Back navigation.

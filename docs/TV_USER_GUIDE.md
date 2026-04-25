@@ -10,7 +10,7 @@ Audiobookshelf supports Android TV, giving you full control of your audiobook an
 
 The TV version of audiobookshelf will be available in the Google Play Store once the app maintainer has an opportunity to publish it. 
 
-In the meantime, you can sideload the latest APK here: https://github.com/bilbospocketses/audiobookshelf-app/releases/latest
+In the meantime, you can sideload the latest APK here: https://github.com/bilbospocketses/abs-app/releases/latest
 
 Once installed, the app appears in your TV launcher alongside your other apps.
 
@@ -44,7 +44,7 @@ All navigation uses the five standard buttons on your TV remote:
 
 ### Focus Ring
 
-The currently focused element is highlighted with a **green border** so you always know where you are. The focus ring adapts to different element types:
+The currently focused element is highlighted with a **green border** by default so you always know where you are. The focus ring adapts to different element types:
 
 - **Book/series/collection cards** — green border around the card
 - **Player controls** — round green ring on circular buttons
@@ -52,6 +52,8 @@ The currently focused element is highlighted with a **green border** so you alwa
 - **Modal dialogs** — green highlight on the active option
 
 ![Focus ring on a book card](images/tv-focus-ring.png)
+
+You can change the focus ring color to one of seven presets (Settings → TV Settings → Focus Ring Color). See [Settings → TV Settings](#tv-settings) below.
 
 ### Smart Navigation
 
@@ -224,6 +226,16 @@ When a modal dialog or overlay opens (e.g., libraries selector, chapter list, sl
 
 All settings pages are fully navigable with the D-pad:
 
+### TV Settings
+
+Available only on Android TV at the top of the Settings page.
+
+**Focus Ring Color** — choose from 7 presets to change the color of the D-pad focus ring across the entire app:
+
+- **ABS Green** (default) · **Sky** · **Amber** · **Red** · **Violet** · **Yellow** · **White**
+
+D-pad Left/Right moves between swatches; Enter selects. The ★ marks your current choice. The new color applies live — no restart needed — and persists across app restarts. The setting is device-wide (shared across users on the same device, like every other UI preference in this app).
+
 ### Settings
 - **Toggle switches** — press Enter to flip on/off
 - **Dropdowns** — press Enter to open, arrow keys to select, Enter to confirm
@@ -325,4 +337,4 @@ If you encounter navigation problems or unexpected behavior:
 3. What you expected vs. what happened
 4. Check the Logs page (side menu → Logs) for any errors
 
-Report issues at https://github.com/bilbospocketses/audiobookshelf-app/issues 
+Report issues at https://github.com/bilbospocketses/abs-app/issues 

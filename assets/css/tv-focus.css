@@ -1,5 +1,11 @@
 /* Focus styles only apply on Android TV devices. */
 
+/* Focus ring color — single source of truth. Override at runtime via
+   document.documentElement.style.setProperty('--tv-focus-color', value). */
+:root.android-tv {
+  --tv-focus-color: #1ad691;
+}
+
 /* Default: no focus ring (overridden below for specific elements) */
 .android-tv *:focus {
   outline: none !important;
@@ -18,7 +24,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  border: 3px solid #1ad691;
+  border: 3px solid var(--tv-focus-color);
   border-radius: 2px;
   pointer-events: none;
   z-index: 200;
@@ -28,7 +34,7 @@
 .android-tv .modal li[role="option"]:focus,
 .android-tv .modal li[tabindex="0"]:focus {
   background-color: rgba(255, 255, 255, 0.08) !important;
-  border-left: 3px solid #1ad691 !important;
+  border-left: 3px solid var(--tv-focus-color) !important;
   outline: none !important;
 }
 
@@ -36,7 +42,7 @@
 .android-tv .bg-bg.transition-transform button:focus,
 .android-tv .bg-bg.transition-transform a:focus {
   background-color: rgba(255, 255, 255, 0.08) !important;
-  border-left: 3px solid #1ad691 !important;
+  border-left: 3px solid var(--tv-focus-color) !important;
   outline: none !important;
 }
 
@@ -51,7 +57,7 @@
   border: 3px solid transparent;
 }
 .android-tv .author-card-wrapper:focus .author-card-inner {
-  border-color: #1ad691;
+  border-color: var(--tv-focus-color);
 }
 
 /* ── Item detail cover art: pseudo-element border overlay ── */
@@ -65,7 +71,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  border: 3px solid #1ad691;
+  border: 3px solid var(--tv-focus-color);
   border-radius: 2px;
   pointer-events: none;
   z-index: 200;
@@ -84,7 +90,7 @@
 .android-tv svg[tabindex="0"]:focus,
 .android-tv p[tabindex="0"]:focus,
 .android-tv div[tabindex="0"]:focus:not([id^="book-card-"]):not([id^="series-card-"]):not([id^="collection-card-"]):not([id^="playlist-card-"]):not([id^="author-book-"]):not(.author-card-wrapper) {
-  outline: 2px solid #1ad691 !important;
+  outline: 2px solid var(--tv-focus-color) !important;
   outline-offset: -2px;
   border-radius: 2px;
 }
@@ -94,7 +100,7 @@
   outline: none !important;
 }
 .android-tv .settings-dropdown:focus input {
-  border: 2px solid #1ad691 !important;
+  border: 2px solid var(--tv-focus-color) !important;
   border-radius: 4px;
 }
 
@@ -115,7 +121,7 @@
 /* ── Player controls: round focus ring ── */
 .android-tv .play-btn:focus,
 .android-tv .jump-icon:focus {
-  outline: 2px solid #1ad691 !important;
+  outline: 2px solid var(--tv-focus-color) !important;
   outline-offset: -2px;
   border-radius: 50%;
 }
