@@ -1,0 +1,70 @@
+# Dependabot configuration for the bilbospocketses/abs-app fork.
+#
+# Lives on the default branch (master) because GitHub reads dependabot.yml only
+# from the default branch. Targets are set per-ecosystem so PRs land where the
+# active development happens:
+#
+#   - npm + gradle: target android-tv-dpad-navigation (our fork's dev branch
+#     for Android TV work). master is just an upstream-sync mirror; we don't
+#     develop there, so security PRs against master would have nowhere to go.
+#
+#   - github-actions: target master, because the workflow files live there and
+#     are inherited from upstream. Action SHA bumps merge to master, then sync
+#     into android-tv-dpad-navigation on the next upstream sync.
+#
+# Cadence: weekly Monday 08:00 ET, capped at 5 open PRs per ecosystem to keep
+# noise manageable.
+
+version: 2
+updates:
+  # ─── Web layer (Nuxt 2 / Vue 2 / Capacitor) ───
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "android-tv-dpad-navigation"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ecosystem/npm"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # ─── Android native layer ───
+  - package-ecosystem: "gradle"
+    directory: "/android"
+    target-branch: "android-tv-dpad-navigation"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ecosystem/gradle"
+    commit-message:
+      prefix: "deps(android)"
+      include: "scope"
+
+  # ─── GitHub Actions workflows (SHA pin updates) ───
+  # Targets default branch (master). The Phase 3 workflow hardening will
+  # SHA-pin the actions; Dependabot then keeps those pins current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ecosystem/github-actions"
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"
