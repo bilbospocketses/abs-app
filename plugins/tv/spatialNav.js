@@ -25,12 +25,21 @@ export function findHorizontalTarget(direction) {
   const playerContainer = document.getElementById('streamContainer')
   const currentInPlayer = playerContainer?.contains(current)
 
-  const candidates = getAllFocusable().filter((el) => {
+  // Snapshot every candidate's rect ONCE. getBoundingClientRect forces a
+  // synchronous layout; calling it inside the filter + sort comparator below
+  // (once per candidate, O(n log n) in the sort) thrashes layout on every
+  // keypress. Reading from the Map instead collapses that to one reflow per
+  // focusable. The Map is ephemeral per call — no invalidation needed (I4).
+  const focusables = getAllFocusable()
+  const rectMap = new Map()
+  for (const el of focusables) rectMap.set(el, el.getBoundingClientRect())
+
+  const candidates = focusables.filter((el) => {
     if (el === current) return false
     // Don't navigate between player and page content via horizontal nav
     if (!currentInPlayer && playerContainer?.contains(el)) return false
     if (currentInPlayer && !playerContainer?.contains(el)) return false
-    const rect = el.getBoundingClientRect()
+    const rect = rectMap.get(el)
     if (!isSameRow(currentRect, rect)) return false
     return goingRight ? rect.left > currentRect.left : rect.right < currentRect.right
   })
@@ -38,8 +47,8 @@ export function findHorizontalTarget(direction) {
   if (candidates.length === 0) return null
 
   candidates.sort((a, b) => {
-    const aRect = a.getBoundingClientRect()
-    const bRect = b.getBoundingClientRect()
+    const aRect = rectMap.get(a)
+    const bRect = rectMap.get(b)
     const aDist = goingRight ? aRect.left - currentRect.left : currentRect.right - aRect.right
     const bDist = goingRight ? bRect.left - currentRect.left : currentRect.right - bRect.right
     return aDist - bDist
@@ -70,13 +79,18 @@ export function findVerticalTarget(direction) {
   const playerContainer = document.getElementById('streamContainer')
   const currentInPlayer = !focusLost && playerContainer?.contains(current)
 
-  const candidates = getAllFocusable().filter((el) => {
+  // Snapshot every candidate's rect ONCE — see findHorizontalTarget (I4).
+  const focusables = getAllFocusable()
+  const rectMap = new Map()
+  for (const el of focusables) rectMap.set(el, el.getBoundingClientRect())
+
+  const candidates = focusables.filter((el) => {
     if (el === current) return false
     // Don't navigate between player and page content via generic vertical nav.
     // The player entry/exit is handled explicitly in handleKeyDown.
     if (!currentInPlayer && playerContainer?.contains(el)) return false
     if (currentInPlayer && !playerContainer?.contains(el)) return false
-    const rect = el.getBoundingClientRect()
+    const rect = rectMap.get(el)
     if (isSameRow(currentRect, rect)) return false
     const center = centerOf(rect)
     const isCorrectDirection = goingDown ? center.y > currentCenter.y : center.y < currentCenter.y
@@ -95,17 +109,17 @@ export function findVerticalTarget(direction) {
 
   // Find the nearest row, then closest element horizontally
   candidates.sort((a, b) => {
-    const aDy = Math.abs(centerOf(a.getBoundingClientRect()).y - currentCenter.y)
-    const bDy = Math.abs(centerOf(b.getBoundingClientRect()).y - currentCenter.y)
+    const aDy = Math.abs(centerOf(rectMap.get(a)).y - currentCenter.y)
+    const bDy = Math.abs(centerOf(rectMap.get(b)).y - currentCenter.y)
     return aDy - bDy
   })
 
-  const nearestRect = candidates[0].getBoundingClientRect()
-  const nearestRow = candidates.filter((el) => isSameRow(nearestRect, el.getBoundingClientRect()))
+  const nearestRect = rectMap.get(candidates[0])
+  const nearestRow = candidates.filter((el) => isSameRow(nearestRect, rectMap.get(el)))
 
   nearestRow.sort((a, b) => {
-    const aDx = Math.abs(centerOf(a.getBoundingClientRect()).x - currentCenter.x)
-    const bDx = Math.abs(centerOf(b.getBoundingClientRect()).x - currentCenter.x)
+    const aDx = Math.abs(centerOf(rectMap.get(a)).x - currentCenter.x)
+    const bDx = Math.abs(centerOf(rectMap.get(b)).x - currentCenter.x)
     return aDx - bDx
   })
 
