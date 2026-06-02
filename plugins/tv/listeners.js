@@ -19,6 +19,7 @@ import { isVisible, getAllFocusable } from './visibility.js'
 import { scrollParentToReveal } from './scrollHelpers.js'
 import { getElementFingerprint, restoreFromFingerprint } from './focusMemory.js'
 import { saveFocusBeforeOverlay, restoreFocusAfterOverlay } from './overlayFocus.js'
+import { findPlayButton, findVisibleSideDrawer } from './selectors.js'
 import {
   focusFirstContentElement,
   focusAfterPlayerClose,
@@ -301,7 +302,7 @@ function registerFocusOutHandler(store) {
         return
       }
       // Redirect to Play button on detail pages, or first content element
-      const playBtn = document.querySelector('.btn.bg-success, button.bg-success')
+      const playBtn = findPlayButton()
       if (playBtn && isVisible(playBtn)) {
         playBtn.focus({ preventScroll: true })
       } else {
@@ -319,7 +320,7 @@ function registerOverlayWatchers(store) {
       if (newVal) {
         saveFocusBeforeOverlay()
         setTimeout(() => {
-          const drawer = document.querySelector('.fixed.z-50 .bg-bg.transition-transform:not(.translate-x-64)')
+          const drawer = findVisibleSideDrawer()
           if (drawer) {
             const first = drawer.querySelector('button, a')
             if (first) first.focus()
