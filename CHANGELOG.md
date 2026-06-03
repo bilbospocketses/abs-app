@@ -4,7 +4,7 @@ All notable changes to the Android TV fork of audiobookshelf-app are documented 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to a fork-specific patch/minor versioning convention (`android-tv-vX.Y.Z`) tracked separately from the upstream `package.json` version.
 
-Entries below are quoted from `docs/PR_DESCRIPTION.md` where that file has a per-version section; pre-v1.0.6 versions are summarized from the GitHub release notes and `memory/todo_abs_tv.md` Shipped section.
+Entries below are quoted from `docs/PR_DESCRIPTION.md` where that file has a per-version section; pre-v1.0.6 versions are summarized from the GitHub release notes and `memory/todo_abs_app.md` Shipped section.
 
 ## [Unreleased]
 
@@ -46,7 +46,7 @@ The **v1.0.11 bundle** — TV init hardening (I2), spatial-nav performance (I4),
   - "Protect android-tv-dpad-navigation" (enforcing): deletion + non-fast-forward + linear history + required signatures + pull request (0 reviewers required, self-approve OK).
   - "Protect release tags" (enforcing): deletion + non-fast-forward on `android-tv-v*`.
 - **chore(security):** Added `.github/workflows/attest-release-apk.yml` — generates Sigstore SLSA-v1.0 build-provenance attestation on every `android-tv-v*` release published. Downstream installers can verify with `gh attestation verify <apk> --repo bilbospocketses/abs-app`. Triggers on `release: published` (not on tag push) so the existing local-APK-build flow is preserved (CI does NOT build the APK — it attests the one you uploaded with the release).
-- **Note on workflow hardening (Phase 3, considered then reverted):** A pass to SHA-pin Actions + add per-job permissions in the 5 inherited workflow files was shipped as PR #13 and immediately reverted as PR #15. Rationale: the workflow files are upstream-owned; modifying them creates ongoing upstream-sync merge cost without value visible to the upstream maintainer in the 9-PR TV series. The hardening is deferred to a goodwill upstream PR (`todo_abs_tv.md` item 17) once the maintainer relationship is established via the 9-PR series acceptance.
+- **Note on workflow hardening (Phase 3, considered then reverted):** A pass to SHA-pin Actions + add per-job permissions in the 5 inherited workflow files was shipped as PR #13 and immediately reverted as PR #15. Rationale: the workflow files are upstream-owned; modifying them creates ongoing upstream-sync merge cost without value visible to the upstream maintainer in the 9-PR TV series. The hardening is deferred to a goodwill upstream PR (`todo_abs_app.md` item 17) once the maintainer relationship is established via the 9-PR series acceptance.
 
 ## [1.0.9] — 2026-05-14 — Upstream v0.13.0-beta sync (cover image + progress sync fixes)
 

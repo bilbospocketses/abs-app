@@ -2,19 +2,25 @@
 
 This document describes the D-pad focus management system for Android TV, implemented in the `plugins/tv/` module suite (split from the former monolithic `plugins/tv-navigation.js` in v1.0.10). It is intended for developers working on the TV navigation PR or extending TV support.
 
-> **Note:** sections below still cite some pre-v1.0.10 `plugins/tv-navigation.js` function paths — a full path refresh is tracked in `todo_abs_app.md`. The `plugins/tv/` module map is in `CHANGELOG.md` under `[1.0.10]`.
+> **Module map:** the `plugins/tv/` suite is summarized in `CHANGELOG.md` under `[1.0.10]` (the v1.0.10 monolith split) and `[Unreleased]` (the v1.0.11 `selectors.js` addition + the I4 perf / I5 selector work). Function-to-module references below are current as of the v1.0.11 bundle.
 
 ---
 
 ## Architecture Overview
 
-The focus system has three layers:
+The focus system has three core layers, plus a slim dispatcher and a listener/watcher layer:
 
-1. **Spatial Navigation** — `findVerticalTarget()` / `findHorizontalTarget()` pick the nearest focusable element in the pressed direction using bounding rect geometry.
-2. **Fingerprint Restore** — `restoreFromFingerprint()` saves and restores focus position across router navigations (Back button).
-3. **Overlay Focus Trapping** — `handleOverlayNavigation()` traps D-pad navigation inside modals and drawers, with a focus history stack for open/close restore.
+1. **Spatial Navigation** (`plugins/tv/spatialNav.js`) — `findVerticalTarget()` / `findHorizontalTarget()` pick the nearest focusable element in the pressed direction using bounding-rect geometry. Each finder snapshots every candidate's rect once per keypress into an ephemeral `Map` to avoid repeated forced reflows (see *Spatial nav rect caching* below).
+2. **Fingerprint Restore** (`plugins/tv/focusMemory.js`) — `getElementFingerprint()` / `restoreFromFingerprint()` save and restore focus position across router navigations (Back button).
+3. **Overlay Focus Trapping** (`plugins/tv/overlayFocus.js`) — `handleOverlayNavigation()` / `getActiveOverlay()` trap D-pad navigation inside modals and drawers, with a focus-history stack (`tvContext.focusHistory`) for open/close restore.
+
+The Nuxt plugin entry + the slim `handleKeyDown` dispatcher live in `plugins/tv/index.js`; router hooks, player/overlay watchers, the focus-out recovery handler, and the eventBus subscribers are all registered by `registerAllTvListeners()` in `plugins/tv/listeners.js`. Shared singleton state lives in `plugins/tv/context.js` (the `tvContext` object).
 
 All TV behavior is gated behind the `android-tv` CSS class on `<html>` (injected by `MainActivity.kt` at `WebViewClient.onPageStarted` via a Capacitor `WebViewListener`, with a `webView.post` backup and a ~5s JS-side poll in `plugins/tv/index.js` — the I2 race fix) or the `isAndroidTv` Vuex state.
+
+### Spatial nav rect caching (I4, v1.0.11)
+
+`getBoundingClientRect()` forces a synchronous layout. The two finders in `spatialNav.js` previously called it once per candidate *inside* their `filter` and `sort` comparators — O(n log n) forced reflows on every D-pad press, measurable input lag on low-power TV hardware (Chromecast with Google TV, Fire TV Stick). As of the v1.0.11 bundle, each finder snapshots every candidate's rect once into an ephemeral per-call `Map` and reads from the Map thereafter (one reflow per focusable; the Map is per-keypress, so no invalidation is needed). `restoreFromFingerprint()` in `focusMemory.js` applies the same idea — it hoists the invariant scroll-container rect out of its non-unique-ID position-match loop.
 
 ---
 
@@ -39,7 +45,8 @@ The runtime override pipeline:
 
 - `pages/settings.vue` renders a TV-only "TV Settings" section hosting `components/ui/TvFocusColorPicker.vue` (7 curated presets, default `#1ad691`).
 - Selection dispatches `user/updateUserSettings` with `{ tvFocusColor }`, which persists via `$localStore.setUserSettings` and emits `user-settings` on `$eventBus`.
-- A subscriber inside `registerTvListeners` in `plugins/tv-navigation.js` writes the chosen hex into `--tv-focus-color` on `<html>`. An initial-apply call before the listener handles the case where `loadUserSettings` finishes before TV nav init runs. Stored values not in the `VALID_TV_FOCUS_HEXES` allowlist self-heal back to default.
+- The preset allowlist (`VALID_TV_FOCUS_HEXES`) and the `applyTvFocusColor(value, store)` helper live in `plugins/tv/focusColor.js`. The helper writes the chosen hex into `--tv-focus-color` on `<html>`; a stored value not in the allowlist self-heals back to the `#1ad691` default (it dispatches a corrective `user/updateUserSettings`).
+- `registerEventBusSubscribers()` — one of the five registrations orchestrated by `registerAllTvListeners()` in `plugins/tv/listeners.js` — does an initial `applyTvFocusColor(store.state.user?.settings?.tvFocusColor, store)` (covering the case where `loadUserSettings` finishes before TV-nav init runs), then subscribes to the `user-settings` event and re-applies on every later change.
 
 ---
 
