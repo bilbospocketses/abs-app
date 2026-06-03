@@ -8,6 +8,21 @@ Entries below are quoted from `docs/PR_DESCRIPTION.md` where that file has a per
 
 ## [Unreleased]
 
+The **v1.0.11 bundle** — TV init hardening (I2), spatial-nav performance (I4), selector robustness (I5), and loading-dot color. Implemented on branch `v1.0.11-bundle`; will release as `android-tv-v1.0.11` after the on-device smoke pass.
+
+### Fixed
+
+- **fix(tv): CSS-injection race (I2)** — inject the `android-tv` class at `WebViewClient.onPageStarted` (via a Capacitor `WebViewListener` registered on the bridge) so it lands before the Nuxt TV plugin boots, replacing the previous `webView.post {}` that raced page-script execution. The `webView.post` injection is retained as an idempotent backup, and `plugins/tv/index.js` now polls ~5s for the class as a JS-side fallback. (`MainActivity.kt`, `plugins/tv/index.js`)
+
+### Changed
+
+- **perf(tv): spatial-nav rect caching (I4)** — `findVerticalTarget` / `findHorizontalTarget` (`plugins/tv/spatialNav.js`) snapshot each candidate's `getBoundingClientRect()` once per keypress into an ephemeral `Map`, eliminating the repeated forced reflows previously incurred inside the filter + `sort` comparators (O(n log n) layout flushes per D-pad press). Also hoisted an invariant container rect out of the `restoreFromFingerprint` loop in `plugins/tv/focusMemory.js`.
+- **refactor(tv): stable selector hooks (I5)** — replaced fragile Tailwind utility-class selectors for the side drawer and primary Play button with `data-tv-overlay="side-drawer"` / `data-tv-target="play-button"`, resolved via a new shared `plugins/tv/selectors.js` (`findVisibleSideDrawer()` / `findPlayButton()`). Drawer hook bound to open-state; play-button hooks on item / episode / playlist / collection detail pages. (`components/app/SideDrawer.vue`, 4 detail pages, `plugins/tv/{overlayFocus,listeners,focusEntry,selectors}.js`)
+
+### Added
+
+- **feat(tv): loading-overlay dots follow the focus color** — on Android TV, `components/ui/LoadingIndicator.vue` dots use `var(--tv-focus-color)` via a `tv-focus-dots` hook + one TV-gated rule in `assets/css/tv-focus.css`, matching the user's chosen focus-ring color live (zero JS). Phone/tablet unchanged (green).
+
 ## [1.0.10] — 2026-06-02 — Internal refactor: modularize tv-navigation.js into plugins/tv/
 
 ### Internal (no user-visible changes)

@@ -1,6 +1,8 @@
 # TV Focus System — Technical Reference
 
-This document describes the D-pad focus management system for Android TV, implemented in `plugins/tv-navigation.js`. It is intended for developers working on the TV navigation PR or extending TV support.
+This document describes the D-pad focus management system for Android TV, implemented in the `plugins/tv/` module suite (split from the former monolithic `plugins/tv-navigation.js` in v1.0.10). It is intended for developers working on the TV navigation PR or extending TV support.
+
+> **Note:** sections below still cite some pre-v1.0.10 `plugins/tv-navigation.js` function paths — a full path refresh is tracked in `todo_abs_app.md`. The `plugins/tv/` module map is in `CHANGELOG.md` under `[1.0.10]`.
 
 ---
 
@@ -12,7 +14,20 @@ The focus system has three layers:
 2. **Fingerprint Restore** — `restoreFromFingerprint()` saves and restores focus position across router navigations (Back button).
 3. **Overlay Focus Trapping** — `handleOverlayNavigation()` traps D-pad navigation inside modals and drawers, with a focus history stack for open/close restore.
 
-All TV behavior is gated behind the `android-tv` CSS class on `<html>` (injected by `MainActivity.kt`) or the `isAndroidTv` Vuex state.
+All TV behavior is gated behind the `android-tv` CSS class on `<html>` (injected by `MainActivity.kt` at `WebViewClient.onPageStarted` via a Capacitor `WebViewListener`, with a `webView.post` backup and a ~5s JS-side poll in `plugins/tv/index.js` — the I2 race fix) or the `isAndroidTv` Vuex state.
+
+---
+
+## Stable Selector Hooks (`data-*` contract, I5)
+
+TV overlay/target detection uses dedicated `data-*` attributes rather than Tailwind utility-class selectors, so maintainer-side class renames don't silently break D-pad navigation. Resolved through `plugins/tv/selectors.js` (single source of truth):
+
+| Hook | Set on | Read by |
+|---|---|---|
+| `data-tv-overlay="side-drawer"` | side-drawer panel in `components/app/SideDrawer.vue` (bound to `show` — present only while open) | `findVisibleSideDrawer()` → `getActiveOverlay()` (`overlayFocus.js`) + drawer-open watcher (`listeners.js`) |
+| `data-tv-target="play-button"` | primary Play `<ui-btn>` on item / episode / playlist / collection detail pages | `findPlayButton()` → `focusFirstContentElement()` (`focusEntry.js`) + redirect handler (`listeners.js`) |
+
+When adding a new overlay or primary action that TV nav must find, add the documented `data-*` attribute rather than relying on a styling class.
 
 ---
 
