@@ -1,14 +1,12 @@
 name: Build APK
 
 on:
+  workflow_dispatch:
+  # Filterless push so `main` runs on EVERY commit/PR (incl. .github-only changes
+  # like github-actions Dependabot bumps) -- it's a required status check, and a
+  # required check that doesn't run on some PRs would block them. Single push-event
+  # run per commit keeps the `main` context unambiguous for the ruleset gate.
   push:
-    paths-ignore:
-      - 'ios/**'
-      - 'readme.md'
-  pull_request:
-    paths-ignore:
-      - 'ios/**'
-      - 'readme.md'
 jobs:
   main:
     runs-on: ubuntu-latest
