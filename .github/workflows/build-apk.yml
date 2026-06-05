@@ -2,13 +2,18 @@ name: Build APK
 
 on:
   push:
+    branches:
+      - android-tv-dpad-navigation
     paths-ignore:
       - 'ios/**'
       - 'readme.md'
   pull_request:
+    branches:
+      - android-tv-dpad-navigation
     paths-ignore:
       - 'ios/**'
       - 'readme.md'
+  workflow_dispatch: {}
 jobs:
   main:
     runs-on: ubuntu-latest
@@ -37,7 +42,7 @@ jobs:
         run: npx cap sync
 
       - name: build Android app
-        run: ./android/gradlew assembleDebug -p android --no-daemon
+        run: ./android/gradlew assembleRelease -p android --no-daemon
 
       - name: rename apk
         run: |
