@@ -125,3 +125,111 @@ export function findVerticalTarget(direction) {
 
   return nearestRow[0]
 }
+
+/**
+ * Column-stable grid vertical target — immune to the native TV focus engine.
+ *
+ * Root problem: the LazyBookshelf virtualizer `el.remove()`s the focused card
+ * mid-scroll, and the native Android-TV focus engine then re-homes focus to an
+ * edge column (deterministically the last). Reading the column from wherever
+ * focus currently is (live `activeElement`) therefore drifts to that edge.
+ *
+ * Fix: take the ROW from where focus actually is (so we follow the scroll), but
+ * the COLUMN from tvContext.gridIntendedCol — the user's chosen column, set only
+ * on Left/Right + first focus, never from live focus — and re-assert it every
+ * press. The target is then `(row ± 1) * itemsPerRow + intendedCol`, focused by
+ * id, so a native hijack to the last column is undone on the very next keypress.
+ *
+ * Returns `{ card, index, col, prefix }` on a hit, or null (not a shelf grid /
+ * nothing remembered / past the first row / target not mounted) — caller falls
+ * back to geometry or its scroll-and-retry.
+ */
+export function findShelfVerticalTarget(direction) {
+  const current = document.activeElement
+  const liveCard =
+    current && current !== document.body && current.closest && current.closest('[id^="shelf-"]')
+      ? current
+      : null
+
+  let index
+  let prefix
+  let currentShelf = null
+  if (liveCard) {
+    const m = liveCard.id.match(/^(.*-card-)(\d+)$/)
+    if (!m) return null
+    prefix = m[1]
+    index = parseInt(m[2], 10)
+    currentShelf = liveCard.closest('[id^="shelf-"]')
+  } else if (tvContext.lastGridIndex != null && tvContext.lastGridPrefix) {
+    index = tvContext.lastGridIndex
+    prefix = tvContext.lastGridPrefix
+    const known = document.getElementById(prefix + index)
+    currentShelf = known ? known.closest('[id^="shelf-"]') : null
+  } else {
+    return null
+  }
+  if (Number.isNaN(index) || !prefix) return null
+
+  const itemsPerRow = gridItemsPerRow(currentShelf)
+  if (!itemsPerRow) return null
+
+  // ROW follows where focus actually is (so we track the scroll, even after a
+  // native hijack); COLUMN is the sticky intended column — immune to the
+  // engine's edge-column hijack. Before any Left/Right has set an intended
+  // column, derive it once from the live card.
+  const currentRow = Math.floor(index / itemsPerRow)
+  const intendedCol = tvContext.gridIntendedCol != null ? tvContext.gridIntendedCol : index % itemsPerRow
+
+  const targetRow = direction === 'ArrowDown' ? currentRow + 1 : currentRow - 1
+  if (targetRow < 0) return null
+
+  const targetIndex = targetRow * itemsPerRow + intendedCol
+  const targetCard = document.getElementById(prefix + targetIndex)
+  if (!targetCard) return null // not mounted yet / past the end — caller handles it
+
+  return { card: targetCard, index: targetIndex, col: intendedCol, prefix }
+}
+
+// Record a focused card's column as the INTENDED column (plus index + prefix).
+// Called on Left/Right and first focus — deliberate column choices — so
+// gridIntendedCol tracks user intent and is never set from a native hijack.
+export function rememberGridCol(card) {
+  if (!card || !card.id) return
+  const m = card.id.match(/^(.*-card-)(\d+)$/)
+  if (!m) return
+  const epp = gridItemsPerRow(card.closest ? card.closest('[id^="shelf-"]') : null)
+  if (!epp) return
+  tvContext.lastGridPrefix = m[1]
+  tvContext.lastGridIndex = parseInt(m[2], 10)
+  tvContext.gridIntendedCol = tvContext.lastGridIndex % epp
+}
+
+// Record only a card's index + prefix — the ROW anchor — WITHOUT touching
+// gridIntendedCol. Used on the vertical geometry fallback, where focus may land
+// on the engine's hijacked column: we must follow the row but must NOT let that
+// wrong column overwrite the user's intended column (doing so poisoned the
+// intended column, so the correction poll treated the hijacked column as
+// "correct" and never fired).
+export function rememberGridRow(card) {
+  if (!card || !card.id) return
+  const m = card.id.match(/^(.*-card-)(\d+)$/)
+  if (!m) return
+  tvContext.lastGridPrefix = m[1]
+  tvContext.lastGridIndex = parseInt(m[2], 10)
+}
+
+// Items per grid row (entitiesPerShelf), read off the current in-view shelf —
+// a full row gives the true value, kept as a monotonic max so a short final row
+// never shrinks it. Cached on tvContext; reset on route change.
+function gridItemsPerRow(currentShelf) {
+  const observed = currentShelf ? shelfCards(currentShelf).length : 0
+  if (observed > (tvContext.gridItemsPerRow || 0)) tvContext.gridItemsPerRow = observed
+  return tvContext.gridItemsPerRow || 0
+}
+
+// Focusable card children of a shelf row, in DOM order — which equals visual
+// column order because mountEntityCard appends cards ascending by index. The
+// only other shelf child is the non-focusable .bookshelfDivider.
+function shelfCards(shelfEl) {
+  return Array.from(shelfEl.children).filter((el) => el.getAttribute('tabindex') === '0')
+}
