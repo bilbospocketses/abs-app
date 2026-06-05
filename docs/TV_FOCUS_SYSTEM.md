@@ -109,10 +109,18 @@ Grid pages (Library, Series, Collections, Playlists) use a virtualizer that only
 3. First lookup attempt may fail (card not rendered yet)
 4. Retry at 250ms succeeds after virtualizer renders
 
-During rapid vertical scrolling, the virtualizer may detach the currently focused card:
-- `lastFocusRect` tracks the last known card position
-- `findVerticalTarget()` uses `lastFocusRect` when `document.activeElement === body` (focus lost)
-- This maintains the correct column during fast scroll even when the focused card is temporarily removed from the DOM
+During rapid vertical scrolling, the virtualizer `el.remove()`s the currently focused card, which drops focus to `<body>` — and the **native Android-TV focus engine then re-homes focus to an edge column** (deterministically the last). This slips past the JS recovery: the focus-out handler only acts when focus falls to `<body>`, but the engine parks focus on a real, wrong-column card. Reading the column from live `activeElement` therefore drifts to that edge column. Column stability is maintained structurally instead (next section); `lastFocusRect` now only feeds the legacy geometric `findVerticalTarget` fallback.
+
+### Column stability during fast scroll (native focus engine)
+
+Shelf-grid cards encode their position in their id (`book-card-42` → absolute index 42; column = `index % itemsPerRow`), so vertical nav does not trust live geometry:
+
+- **Intended column** (`tvContext.gridIntendedCol`) — the user's chosen column, set **only** on Left/Right + first focus, never from live focus, so a native hijack can't corrupt it. `gridItemsPerRow` is read off the in-view shelf's card count (monotonic max).
+- **Vertical nav** (`findShelfVerticalTarget` in `spatialNav.js`, tried before the geometric finder in `gridNav.js`) takes the **row** from where focus actually is but re-asserts the **intended column**: target = `(row ± 1) × itemsPerRow + intendedCol`, focused by id — so a hijack to the last column is undone on the next keypress.
+- **Resting correction** — a `focusin` watcher in `listeners.js` re-asserts the intended column every 100 ms for ~2 s after a hijack, out-persisting the engine. Each tick no-ops once focus is already correct, only runs at rest (the keydown re-assert owns the column mid-scroll), and is time-boxed by `tvContext.lastVerticalNavAt` so it never overrides a deliberate first-card reset.
+- The geometric `findVerticalTarget` fallback (grid-exit ArrowUp → toolbar, non-shelf Authors flex-grid) **must not write `gridIntendedCol`** — doing so poisoned the intended column with the engine's hijacked column, which was the original bug.
+
+All grid state (`gridIntendedCol`, `lastGridIndex`, `lastGridPrefix`, `gridItemsPerRow`, `lastVerticalNavAt`, `gridCorrectionInterval`/`Until`) lives on `tvContext` and resets on route change.
 
 ---
 
@@ -248,7 +256,7 @@ The viewport check (step 3) is critical for preventing the side drawer's Disconn
 | All TV code gated behind `android-tv` class | Zero impact on phone/tablet builds |
 | Spatial "beam model" navigation | Horizontal stays in row, vertical finds nearest row — feels natural on grid layouts |
 | Focus memory uses fingerprints, not element references | Elements are destroyed and recreated on page navigation; fingerprints survive re-renders |
-| `lastFocusRect` for rapid scroll recovery | Virtualizer detaches cards during scroll — saved position maintains column alignment |
+| Structural column re-assert during fast scroll | The native focus engine hijacks focus to an edge column when the virtualizer unmounts the focused card; tracking the intended column separately and re-asserting it (keydown + a `focusin` watcher) beats the engine where live-geometry reads cannot |
 | `ensureScroll` before lookup (not parallel) | Prevents timing race where elements are rejected as off-screen before scroll applies |
 | Strict `isVisible` with viewport check | Prevents translated/off-screen drawer elements from stealing focus |
 | `verticalNavInProgress` guard | Prevents `focusout` recovery from fighting virtualizer card re-attachment during scroll |
