@@ -50,6 +50,17 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@nuxtjs/*"
         update-types: ["version-update:semver-major"]
+    # Batch all minor + patch bumps into ONE weekly PR. @capacitor/* core + plugins
+    # must share a version and @nuxtjs/* move together; a split bump ERESOLVEs on
+    # the peer mismatch. Grouping keeps them in lockstep. Majors still open
+    # individually (and the framework majors above stay ignored).
+    groups:
+      npm-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # --- Android native layer ---
   - package-ecosystem: "gradle"
@@ -67,6 +78,15 @@ updates:
     commit-message:
       prefix: "deps(android)"
       include: "scope"
+    # Batch all minor + patch Gradle bumps into ONE weekly PR; majors open
+    # individually for review.
+    groups:
+      gradle-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # --- GitHub Actions workflows (SHA pin updates) ---
   - package-ecosystem: "github-actions"
