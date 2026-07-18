@@ -29,7 +29,17 @@ jobs:
 
       - name: Enable auto-merge (patch/minor, or any security update)
         if: ${{ steps.meta.outputs.update-type != 'version-update:semver-major' || steps.meta.outputs.ghsa-id != '' }}
-        run: gh pr merge --auto --squash "$PR_URL"
+        run: |
+          # Live-state guard: the pull_request event payload is a snapshot from when
+          # the event fired, so it can report "open" for a PR that was closed or
+          # superseded before this job ran -- and `gh pr merge --auto` then fails with
+          # "Pull request is closed". Re-check the CURRENT state right before enabling.
+          state=$(gh pr view "$PR_URL" --json state --jq .state)
+          if [ "$state" != "OPEN" ]; then
+            echo "PR is $state (not OPEN) -- skipping auto-merge enable."
+            exit 0
+          fi
+          gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
