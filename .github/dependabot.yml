@@ -38,6 +38,18 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"
+    # Web-framework stack tracks upstream advplyr/audiobookshelf-app (still Nuxt 2 /
+    # Vue 2). A major jump (Nuxt 3 -> Vue 3) must originate upstream and reach us via
+    # fork-sync, never as a unilateral bump in this fork -- otherwise every sync becomes
+    # a merge war. Block the majors so Dependabot stops re-proposing them; patch/minor
+    # within the current majors still flow.
+    ignore:
+      - dependency-name: "nuxt"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vue"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@nuxtjs/*"
+        update-types: ["version-update:semver-major"]
 
   # --- Android native layer ---
   - package-ecosystem: "gradle"
