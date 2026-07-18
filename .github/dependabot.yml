@@ -84,3 +84,10 @@ updates:
     commit-message:
       prefix: "chore(ci)"
       include: "scope"
+    # Batch all action bumps into one PR — keeps the codeql-action init/analyze/
+    # upload-sarif refs in lockstep (a split bump mismatches CodeQL versions) and
+    # avoids weekly action-PR pile-ups.
+    groups:
+      actions:
+        patterns:
+          - "*"
