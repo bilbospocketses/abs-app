@@ -8,6 +8,11 @@ Entries below are quoted from `docs/PR_DESCRIPTION.md` where that file has a per
 
 ## [Unreleased]
 
+### Changed
+
+- **docs: open the whole upstream series instead of gating it in waves** — `docs/PR_DECOMPOSITION_PLAN.md` no longer describes the three sequential waves it was originally planned around. PRs 1-4 opened 2026-06-06 and sat 11 weeks with zero maintainer engagement, so the pacing bought nothing and kept the remaining six PRs invisible. The wave-structure section is replaced by a submission structure describing the series as fully open, with the 1/2/3 layering reframed as a merge-order dependency graph rather than a gate; the table's `Wave` column became `Layer`; the shared-file rebase pairs, the PR5/PR6 stack, and the two companion PRs are documented; the effort estimate became a status table; and a private local filesystem path was dropped from the reference list. (fork PR #66)
+- **docs: mark `docs/PR_DESCRIPTION.md` as a superseded historical draft** — it holds pre-submission draft copy under the retired 9-PR numbering and wave structure. All twelve PR descriptions are now live upstream, so the drafts are no longer the source of truth; a banner points at the live PRs rather than duplicating them into a second file that would drift again.
+
 ## [1.0.11] — 2026-06-06
 
 The **v1.0.11 bundle** — TV init hardening (I2), spatial-nav performance (I4), selector robustness (I5), loading-dot color, and a side-drawer fix that hides the browser-only "Go to Web Client" action on Android TV. Verified via the full 13-batch on-device smoke on the Google TV Streamer 4K.
