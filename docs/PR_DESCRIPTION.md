@@ -1,4 +1,23 @@
-# Android TV Support — Upstream PR Descriptions (9-PR series)
+# Android TV Support — Upstream PR Descriptions (superseded draft)
+
+> **Superseded 2026-08-25 — historical draft, not current.**
+>
+> This file holds the *pre-submission* draft copy for each upstream PR. All twelve PRs
+> are now open at `advplyr/audiobookshelf-app` as **#1983-#1994**, and their live
+> descriptions are the source of truth — not this file.
+>
+> Two things below are out of date and deliberately left as-is:
+> - **The numbering is the retired 9-PR scheme.** The series was re-validated to 10 PRs
+>   on 2026-06-06 (a new PR3, "hide Go to Web Client on TV", shifted the former PRs 3-9
+>   to 4-10). PR numbers in this file do not match the shipped series.
+> - **The `Wave 1/2/3` headings describe sequencing that no longer exists.** The waves
+>   were dropped on 2026-08-25 and the whole series opened at once; the layering is now
+>   a dependency graph, not a gate.
+>
+> For the current picture see [`PR_DECOMPOSITION_PLAN.md`](PR_DECOMPOSITION_PLAN.md),
+> which is maintained, and the live PRs themselves. Kept only as a record of how the
+> descriptions were drafted.
+
 
 **Supersedes the single ~7,000-LOC PR #1843.** This document holds the ready-to-use
 description for each PR in the 9-PR series that replaces #1843. It is the detailed
