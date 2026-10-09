@@ -17,7 +17,7 @@
     "@webnativellc/capacitor-filesharer": "7.0.4",
     "@capacitor-community/keep-awake": "^7.0.0",
     "@capacitor-community/volume-buttons": "^7.0.0",
-    "@capacitor/android": "^7.0.0",
+    "@capacitor/android": "^7.6.9",
     "@capacitor/app": "^7.0.0",
     "@capacitor/browser": "^7.0.0",
     "@capacitor/clipboard": "^7.0.0",
