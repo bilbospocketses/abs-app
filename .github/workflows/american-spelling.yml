@@ -1,0 +1,65 @@
+name: American spelling
+
+# Fork-only workflow. advplyr/audiobookshelf-app has no file of this name, so
+# nothing here travels upstream, and no upstream-owned workflow (build-apk.yml,
+# i18n-check.yml, ...) is edited to carry the gate. Branches bound for upstream
+# are checked by the local pre-push hook instead.
+
+on:
+  push:
+    branches:
+      - android-tv-dpad-navigation
+  pull_request:
+    branches:
+      - android-tv-dpad-navigation
+
+permissions:
+  contents: read
+
+jobs:
+  american-spelling:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The gate diffs from the merge-base with the base branch and refuses
+          # a shallow clone.
+          fetch-depth: 0
+
+      # American spelling. The cross-repo gate from bilbospocketses/american-spelling
+      # scans the lines this branch adds and its commit messages, and fails on a
+      # British spelling.
+      #
+      # A job of its own, in a file of its own, because this repo is a fork: the
+      # required `main` check lives in build-apk.yml, which upstream also owns.
+      # The ruleset on android-tv-dpad-navigation must require the check named
+      # `american-spelling` for this gate to block a merge.
+      #
+      # Exceptions are not kept in this repo. A verbatim quote takes the inline
+      # `spelling: allow` marker; an identifier used on many lines goes in the
+      # gate's central allow.txt, and reaches this repo when the pin is bumped.
+      # On a push to android-tv-dpad-navigation the base is that branch itself,
+      # so there is nothing to scan.
+      - name: Fetch the base branch
+        run: git fetch --no-tags origin "+refs/heads/${BASE}:refs/remotes/origin/${BASE}"
+        env:
+          BASE: ${{ github.base_ref || github.event.repository.default_branch }}
+      - name: Check out the American-spelling gate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: bilbospocketses/american-spelling
+          ref: 21ed7e5524c511d9ee584778d42b72e6ddaeba86 # v1.0.2
+          path: .american-spelling
+          persist-credentials: false
+      - name: Check American spelling
+        # The runner's own Python 3; the gate is stdlib-only.
+        run: >-
+          python3 .american-spelling/check-american-spelling.py
+          --repo .
+          --base "origin/${BASE}"
+          --repo-slug "${SLUG}"
+        env:
+          BASE: ${{ github.base_ref || github.event.repository.default_branch }}
+          SLUG: ${{ github.repository }}
+      - name: Remove the gate checkout
+        run: rm -rf .american-spelling
